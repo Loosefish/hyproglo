@@ -3,10 +3,42 @@
 from socket import socket, AF_UNIX
 import json
 import os
+import os.path
 import sys
 
 SOCK_ADDR = "/home/henry/.config/mpd/socket"
 
+
+def mpd(sock_addr, query):
+    result = None
+
+    sock = socket(AF_UNIX)
+    sock.connect(sock_addr)
+    status = sock.recv(64)
+    if status.startswith(b"OK MPD"):
+        sock.sendall(query.encode())
+        result = sock.recv(4096)
+        if not result.startswith(b"ACK"):
+            while not result.endswith(b"OK\n"):
+                result += sock.recv(4096)
+    return status, result
+
+
+def image(filename):
+    _, result = mpd(SOCK_ADDR, "config\n")
+    if result is None:
+        return
+
+    images = (".jpg", ".jpeg", ",png", ".gif")
+    for line in result.decode().splitlines():
+        if line.startswith("music_directory: "):
+            basedir = line.split(": ", 1)[1]
+            path = os.path.join(basedir, os.path.dirname(filename))
+            images = [f for f in os.listdir(path) if os.path.splitext(f)[1].lower() in images]
+            if len(images) == 0:
+                return None
+            else:
+                return images[0]
 
 
 def main():
@@ -15,18 +47,9 @@ def main():
         query = sys.stdin.read(int(os.environ["CONTENT_LENGTH"]))
         if query[-1:] != "\n":
             query += "\n"
-        sock = socket(AF_UNIX)
-        sock.connect(SOCK_ADDR)
-
-        status = sock.recv(64)
+        status, result = mpd(SOCK_ADDR, query)
         answer["status"] = status.decode()
-        if status.startswith(b"OK MPD"):
-            sock.sendall(query.encode())
-            result = sock.recv(4096)
-            if not result.startswith(b"ACK"):
-                while not result.endswith(b"OK\n"):
-                    result += sock.recv(4096)
-            answer["result"] = result.decode()
+        answer["result"] = result.decode()
     except:
         answer["error"] = str(sys.exc_info()[1])
         raise
