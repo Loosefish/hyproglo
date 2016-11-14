@@ -1,0 +1,17 @@
+#!/bin/sh
+
+do_() {
+    do_make
+}
+
+
+do_server() {
+    cd server
+    python -m http.server --cgi 8888
+}
+
+
+do_make() {
+    # ~/Entwicklung/elm/elm-make src/Main.elm --output server/index.html
+    ~/Entwicklung/elm/elm-make src/Main.elm --output server/main.js
+}
