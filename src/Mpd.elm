@@ -18,6 +18,8 @@ type alias MpdAnswer =
     }
 
 
+-- Artist
+
 getAlbumArtists : Cmd Msg
 getAlbumArtists =
     Task.perform (GotAlbumArtists << Err) parseArtists
@@ -36,6 +38,9 @@ toArtist pairs =
             [ Dict.get "AlbumArtist" pairs
             , Dict.get "Artist" pairs
             ]
+
+
+-- Album
 
 
 sendMpd : String -> Task Http.Error String

@@ -1,17 +1,27 @@
 #!/bin/sh
 
 do_() {
-    do_make
+    do_halogen
 }
 
 
 do_server() {
-    cd server
-    python -m http.server --cgi 8888
+    # cd server
+    # python -m http.server --cgi 8888
+    touch server.log
+    tail -f server.log &
+    log=$!
+    lighttpd -D -f lighttpd.conf
+    kill $!
 }
 
 
-do_make() {
-    # ~/Entwicklung/elm/elm-make src/Main.elm --output server/index.html
-    ~/Entwicklung/elm/elm-make src/Main.elm --output server/main.js
+do_halogen() {
+    cd halogen
+    case $1 in
+        w)  pulp -w browserify --optimise --to ../server/app.js
+            ;;
+        *)  pulp browserify --optimise --to ../server/app.js
+            ;;
+    esac
 }
