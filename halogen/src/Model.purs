@@ -2,12 +2,18 @@ module Model where
 
 import Hpg.Prelude
 
+import Halogen (HalogenEffects)
+import Network.HTTP.Affjax (AJAX)
+import DOM.HTML.Types (WINDOW)
+import Control.Monad.Eff.Console (CONSOLE)
+
 
 type State =
     { busy :: Boolean
     , albumArtists :: Array Artist
     , view :: View
     }
+
 
 data View
     = AlbumArtists
@@ -44,3 +50,10 @@ newtype Song = Song
     , artist :: String
     , track :: Maybe String
     }
+
+
+type AppEffects eff = HalogenEffects
+    ( ajax :: AJAX
+    , console :: CONSOLE
+    , window :: WINDOW
+    | eff)
