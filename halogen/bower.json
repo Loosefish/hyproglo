@@ -10,7 +10,9 @@
   ],
   "dependencies": {
     "purescript-console": "^2.0.0",
-    "purescript-halogen": "^0.12.0",
+    "purescript-halogen": "^0.12.0"
+  },
+  "devDependencies": {
     "purescript-affjax": "^3.0.0",
     "purescript-routing": "^3.0.0"
   }

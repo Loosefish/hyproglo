@@ -8,11 +8,12 @@ do_() {
 do_server() {
     # cd server
     # python -m http.server --cgi 8888
-    touch server.log
-    tail -f server.log &
-    log=$!
-    lighttpd -D -f lighttpd.conf
-    kill $!
+    # touch server.log
+    # tail -f server.log &
+    # log=$!
+    # lighttpd -D -f lighttpd.conf
+    # kill $!
+    python hpg.py
 }
 
 
@@ -24,4 +25,9 @@ do_halogen() {
         *)  pulp browserify --optimise --to ../server/app.js
             ;;
     esac
+}
+
+do_images() {
+    rm -rf server/image/*
+    zsh -c 'ls /home/henry/Medien/Musik/*/*.[pj][np]g | while read x; do ln -s "$x" "server/image/$(basename "$(dirname $x)")"; done'
 }

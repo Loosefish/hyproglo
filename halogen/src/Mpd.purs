@@ -1,4 +1,4 @@
-module Mpd (fetchAlbumArtists, fetchAlbums, fetchSongs) where
+module Mpd where
 
 import Hpg.Prelude
 
@@ -23,6 +23,7 @@ type Assoc a b = List (Tuple a b)
 
 
 data Mpd = Mpd (Either String String)
+type MpdEffect = forall eff. Aff (ajax :: AJAX | eff) Mpd
 
 instance mpdIsForeign :: IsForeign Mpd where
     read value = do
@@ -69,6 +70,17 @@ fetchAlbums (Artist { name }) =
     query = "list Album AlbumArtist " <> quote name <> " group AlbumArtist group Date"
 
 
+fetchAlbums' :: forall eff. Artist -> Aff (ajax :: AJAX | eff) (Array (Tuple Album (Array Song)))
+fetchAlbums' (Artist { name }) = do
+    songs <- parseSongs <$> queryMpd ("find AlbumArtist " <> quote name)
+    let albums = L.nub $ L.mapMaybe (\(Song { album }) -> album) songs
+    let withSongs = map (\a -> Tuple a $ filter a songs) albums
+    pure $ A.fromFoldable withSongs
+  where
+    filter album songs =
+        A.fromFoldable $ L.filter (\(Song s) -> maybe false ((==) album) s.album) songs
+
+
 parseAlbums :: Mpd -> List Album
 parseAlbums = L.mapMaybe parseAlbum <<< group <<< toAssoc
 
@@ -102,12 +114,56 @@ parseSong pairs = do
     artist <- lookup "Artist" pairs <|> lookup "AlbumArtist" pairs
     let disc = lookup "Disc" pairs
     let track = lookup "Track" pairs
-    pure $ Song { artist, disc, file, time, title, track }
+    let album = parseAlbum pairs
+    pure $ Song { artist, disc, file, time, title, track, album }
 
+
+-- Playlist
+
+clear :: MpdEffect
+clear = queryMpd "clear"
+
+
+addSong :: Song -> MpdEffect
+addSong (Song { file }) = queryMpd $ "add " <> quote file
+
+
+addAlbum :: Album -> MpdEffect
+addAlbum (Album { artist, date, title }) =
+    queryMpd $ S.joinWith " "
+        [ "findadd"
+        , "AlbumArtist", quote $ (\(Artist { name }) -> name) artist
+        , "Date", quote date
+        , "Album", quote title
+        ]
+
+
+-- Control
+
+play :: Int -> MpdEffect
+play i = queryMpd $ "play " <> show i
+
+
+-- Status
+
+currentSong :: forall eff. Aff (ajax :: AJAX | eff) (Maybe Song)
+currentSong = parseSong <<< toAssoc <$> queryMpd "currentsong"
+
+
+fetchStatus :: forall eff. Aff (ajax :: AJAX | eff) (Maybe Status)
+fetchStatus = parseStatus <<< toAssoc <$> queryMpd "status"
+
+
+parseStatus :: Assoc String String -> Maybe Status
+parseStatus pairs = do
+    repeat <- toBoolean <$> lookup "repeat" pairs
+    random <- toBoolean <$> lookup "random" pairs
+    single <- toBoolean <$> lookup "single" pairs
+    pure $ Status { repeat, random, single }
 
 -- Basic
 
-queryMpd :: forall eff. String -> Aff (ajax :: AJAX | eff) Mpd
+queryMpd :: String -> MpdEffect
 queryMpd code = do
     result <- post "/cgi-bin/mpd" code
     let response = result.response
@@ -141,3 +197,13 @@ quote s = "\"" <> escape s <> "\""
 
 escape :: String -> String
 escape = S.replaceAll (Pattern "\"") (Replacement "\\\"")
+
+
+toBoolean :: String -> Boolean
+toBoolean "1" = true
+toBoolean _ = false
+
+
+fromBoolean :: Boolean -> String
+fromBoolean true = "1"
+fromBoolean false = "0"

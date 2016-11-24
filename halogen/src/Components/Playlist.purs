@@ -21,6 +21,10 @@ derive instance eqSlot :: Eq Slot
 derive instance ordSlot :: Ord Slot
 
 
+init :: State
+init = State { playlist: [] } 
+
+
 ui :: forall eff. Component State Query (Aff (AppEffects eff))
 ui = H.lifecycleComponent
     { render
@@ -39,3 +43,7 @@ ui = H.lifecycleComponent
             [ HH.h4 [toClass "page-header"] [HH.text "Playlist"]
             , HH.div_ [HH.text $ show $ A.length playlist]
             ]
+
+
+child :: forall eff. Unit -> { component :: Component State Query (Aff (AppEffects eff)), initialState :: State }
+child _ = { component: ui, initialState: init }

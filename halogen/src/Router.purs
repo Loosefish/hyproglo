@@ -22,6 +22,7 @@ routing :: Match View
 routing = 
     (\name -> Albums (Artist { name })) <$> (lit "" *> lit "music" *> str)
     <|> Artists <$ (lit "" *> lit "music")
+    <|> Playlist <$ (lit "" *> lit "playlist")
     <|> pure Artists
 
 

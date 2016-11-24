@@ -7,6 +7,7 @@ import Data.Char (fromCharCode)
 import Data.String as S
 
 import Halogen.HTML.Core (className, HTML(Element))
+import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as H
 import Halogen.HTML.Properties.Indexed (classes, href, IProp(..), I)
 
@@ -33,7 +34,11 @@ viewLiA h c = H.li_ [H.a [href h] c]
 
 
 stripNum :: Maybe String -> Maybe String
-stripNum track = S.takeWhile ((/=) '/') <$> track
+stripNum text = S.takeWhile ((/=) '/') <$> text
+
+
+trimDate :: String -> String
+trimDate = S.takeWhile ((/=) '-')
 
 
 formatTime :: Int -> String
@@ -46,3 +51,8 @@ formatTime total = show minutes <> ":" <> pad seconds
 
 clickable :: forall r i. IProp (class :: I | r) i
 clickable  = toClass "clickable"
+
+
+onClickDo = HE.onClick <<< HE.input_
+
+dirname = S.takeWhile ((/=) '/')  -- Only handles depth == 1

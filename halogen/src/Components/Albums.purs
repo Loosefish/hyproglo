@@ -11,17 +11,18 @@ import Data.String as S
 import Halogen (Component, ComponentDSL, ComponentHTML)
 import Halogen as H
 import Halogen.HTML.Indexed as HH
-import Halogen.HTML.Properties.Indexed (href, src, colSpan)
+import Halogen.HTML.Properties.Indexed (src, colSpan)
 
 import Model (Artist(..), Album(..), Song(..), AppEffects)
-import Mpd (fetchSongs, fetchAlbums)
-import Util (toClass, fa, clickable, nbsp, addProp, stripNum, formatTime)
+import Mpd (fetchSongs, fetchAlbums', clear, addAlbum, addSong, play)
+import Util (toClass, fa, clickable, nbsp, addProp, stripNum, formatTime, onClickDo, dirname)
 
 
 type State =
     { artist :: Artist
     , albums :: Array (Tuple Album (Array Song))
     , focus :: Maybe Album
+    , busy :: Boolean
     }
 
 
@@ -30,10 +31,15 @@ init a =
     { artist: a
     , albums: []
     , focus: Nothing
+    , busy: false
     }
 
 
-data Query a = LoadAlbums a | Focus Album a
+data Query a
+    = LoadAlbums a
+    | Focus Album a
+    | PlayAlbum Album Int a
+    | AddSong Song a
 
 data Slot = Slot
 derive instance eqSlot :: Eq Slot
@@ -50,27 +56,40 @@ ui = H.lifecycleComponent
   where
     eval :: Query ~> ComponentDSL State Query (Aff (AppEffects eff))
     eval (LoadAlbums next) = do
-        newAlbums <- H.fromAff <$> fetchAlbums =<< H.gets _.artist
-        songs <- H.fromAff <$> parSequence $ map fetchSongs newAlbums
-        let withSongs = A.zip newAlbums songs
-        H.modify (_ { albums = withSongs })
+        H.modify (_ { busy = true })
+        withSongs <- H.fromAff <$> fetchAlbums' =<< H.gets _.artist
+        H.modify (_ { albums = withSongs, busy = false })
         pure next
 
     eval (Focus album next) = do
         H.modify (_ { focus = Just album })
         pure next
 
+    eval (PlayAlbum album i next) = do
+        H.fromAff $ clear
+        H.fromAff $ addAlbum album
+        H.fromAff $ play i
+        pure next
+
+    eval (AddSong song next) = do
+        H.fromAff $ addSong song
+        pure next
+
     render :: State -> ComponentHTML Query
     render state =
         HH.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"]
-            (header : links : HH.hr_ : map albumRow albums)
+            [ header
+            , HH.span
+                (if state.busy then [toClass "hidden"] else [])
+                (links : HH.hr_ : map albumRow albums)
+            ]
       where
         name = (\(Artist { name }) -> name) state.artist
         albums = state.albums
-        header = HH.h4 [toClass "page-header"] [HH.text name]
+        header = HH.h4 [toClass "page-header"] $ 
+            (HH.text $ name <> nbsp) : if state.busy then [fa "circle-o-notch fa-spin"] else []
 
-        links = HH.ul [toClass "nav nav-pills"]
-            (HH.li_ [HH.a [href "#/music"] [fa "arrow-left"]] : map albumLink albums)
+        links = HH.ul [toClass $ "nav nav-pills"] $ map albumLink albums
 
         albumLink (Tuple album _) = HH.li [clickable] [HH.a_ $ albumTitle album]
 
@@ -78,37 +97,43 @@ ui = H.lifecycleComponent
 
         albumRow (Tuple album songs) =
             HH.div [toClass "row"]
-                [ HH.div [toClass "col-xs-12"] [HH.h5_ [HH.span [clickable] $ albumTitle album, HH.text nbsp, addProp (clickable) $ fa "plus-circle"]]
-                , HH.div [toClass "col-xs-12 col-sm-8"] $ [songTable songs]
+                [ HH.div [toClass "col-xs-12"] [HH.h5_ [HH.span [clickable, onClickDo $ PlayAlbum album 0] $ albumTitle album, HH.text nbsp, addProp (clickable) $ fa "plus-circle"]]
+                , HH.div [toClass "col-xs-12 col-sm-8"] $ [songTable]
                 , HH.div [toClass "col-sm-4 col-xs-hidden"] [image $ A.head songs]
                 ]
-
-        image (Just (Song { file })) = HH.img [src $ "/cgi-bin/image?file=" <> file, toClass "img-responsive center-block"]
-        image Nothing = HH.img []
-
-        songTable songs = HH.table [toClass "table table-condensed table-hover"]
-            [ HH.tbody_ $ A.concatMap songOrDisc songs
-            , HH.tfoot_ [footer]
-            ]
           where
-            various = any (\(Song { artist }) -> artist /= name) songs
-            multidisc = 1 < A.length (A.nub $ map (\(Song s) -> s.disc) songs)
-            width = if various then 5 else 4
+            image Nothing = HH.img []
+            image (Just (Song { file })) =
+                HH.img [src $ "/image/" <> file, toClass "img-responsive center-block"]
 
-            songOrDisc s@(Song { track, disc }) | multidisc && maybe false ((==) "1") (stripNum track) =
-                [HH.tr_ [HH.th [colSpan width] [fa "circle", HH.text $ nbsp <> (fromMaybe "" $ stripNum disc)]], songRow s]
-            songOrDisc s = [songRow s]
+            songTable = HH.table [toClass "table table-condensed table-hover"]
+                [ HH.tbody_ $ A.concat $ A.mapWithIndex songOrDisc songs
+                , HH.tfoot_ [footer]
+                ]
+              where
+                various = any (\(Song { artist }) -> artist /= name) songs
+                multidisc = 1 < A.length (A.nub $ map (\(Song s) -> s.disc) songs)
+                width = if various then 5 else 4
 
-            songRow (Song { title, track, time, artist, disc }) =
-                HH.tr_ $ A.catMaybes
-                    [ Just $ HH.td_ [HH.text $ fromMaybe "" $ stripNum track]
-                    , if various then Just $ HH.td_ [HH.text artist] else Nothing
-                    , Just $ HH.td [clickable] [HH.text title]
-                    , Just $ HH.td_ [HH.text $ formatTime time]
-                    , Just $ HH.td [clickable] [fa "plus-circle"]
+                songOrDisc i s@(Song { track, disc }) | multidisc && maybe false ((==) "1") (stripNum track) =
+                    [HH.tr_ [HH.th [colSpan width] [fa "circle", HH.text $ nbsp <> (fromMaybe "" $ stripNum disc)]], songRow i s]
+                songOrDisc i s = [songRow i s]
+
+                songRow i s@(Song { title, track, time, artist, disc }) =
+                    HH.tr_ $ A.catMaybes
+                        [ Just $ HH.td_ [HH.text $ fromMaybe "" $ stripNum track]
+                        , if various then Just $ HH.td_ [HH.text artist] else Nothing
+                        , Just $ HH.td [clickable, onClickDo $ PlayAlbum album i] [HH.text title]
+                        , Just $ HH.td_ [HH.text $ formatTime time]
+                        , Just $ HH.td [clickable, onClickDo $ AddSong s] [fa "plus-circle"]
+                        ]
+
+                footer = HH.tr_ $ 
+                    [ HH.td [colSpan $ width - 2] []
+                    , HH.td_ [HH.text $ formatTime $ sum $ map (\(Song s) -> s.time) songs]
                     ]
 
-            footer = HH.tr_ $ 
-                [ HH.td [colSpan $ width - 2] []
-                , HH.td_ [HH.text $ formatTime $ sum $ map (\(Song s) -> s.time) songs]
-                ]
+
+
+child :: forall eff. Artist -> Unit -> { component :: Component State Query (Aff (AppEffects eff)), initialState :: State }
+child artist = \_ -> { component: ui, initialState: init artist }

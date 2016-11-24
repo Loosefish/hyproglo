@@ -25,6 +25,10 @@ derive instance eqSlot :: Eq Slot
 derive instance ordSlot :: Ord Slot
 
 
+init :: State
+init = []
+
+
 ui :: forall eff. Component State Query (Aff (AppEffects eff))
 ui = H.lifecycleComponent
     { render
@@ -53,3 +57,7 @@ ui = H.lifecycleComponent
             ]
 
         letter (Artist { name }) = S.toUpper $ S.take 1 name
+
+
+child :: forall eff. Unit -> { component :: Component State Query (Aff (AppEffects eff)), initialState :: State }
+child _ = { component: ui, initialState: init }
