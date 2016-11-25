@@ -159,7 +159,13 @@ parseStatus pairs = do
     repeat <- toBoolean <$> lookup "repeat" pairs
     random <- toBoolean <$> lookup "random" pairs
     single <- toBoolean <$> lookup "single" pairs
-    pure $ Status { repeat, random, single }
+    playState <- parsePlayState =<< lookup "state" pairs
+    pure $ Status { repeat, random, single, playState }
+  where
+    parsePlayState "play" = Just Play
+    parsePlayState "pause" = Just Pause
+    parsePlayState "stop" = Just Stop
+    parsePlayState _ = Nothing
 
 -- Basic
 

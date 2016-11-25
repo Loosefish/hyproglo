@@ -115,19 +115,26 @@ ui = H.parentComponent { render, eval, peek: Nothing }
         child (Albums artist) = HH.slot' pathAlbums CAL.Slot $ CAL.child artist
         child Playlist = HH.slot' pathPlaylist CP.Slot CP.child
 
-        controls (Status { random, repeat, single }) = HH.div_
-            [ buttonGroup [button false [fa "play"]]
-            , buttonGroup $ map (button false) [[fa "fast-backward"], [fa "stop"], [fa "fast-forward"]]
+        controls (Status { random, repeat, single, playState }) = HH.div_
+            [ buttonGroup [playButton]
+            , buttonGroup
+              [ button' false (SendCmd "previous") [fa "fast-backward"]
+              , button' false (SendCmd "stop") [fa "stop"]
+              , button' false (SendCmd "next") [fa "fast-forward"]
+              ]
             , buttonGroup 
-                [ button' random (SendCmd $ "random " <> if random then "0" else "1") [fa "random"]
-                , button' repeat (SendCmd $ "repeat " <> if repeat then "0" else "1") [fa "repeat"]
-                , button' single (SendCmd $ "single " <> if single then "0" else "1") [HH.text "1"]
-                ]
+              [ button' random (SendCmd $ "random " <> if random then "0" else "1") [fa "random"]
+              , button' repeat (SendCmd $ "repeat " <> if repeat then "0" else "1") [fa "repeat"]
+              , button' single (SendCmd $ "single " <> if single then "0" else "1") [HH.text "1"]
+              ]
             ]
           where
             buttonGroup = HH.div [toClass "btn-group btn-group-sm btn-group-justified"]
             button active = HH.a [toClass $ "btn btn-default" <> if active then " active" else ""]
             button' active action = HH.a [onClickDo action, toClass $ "btn btn-default" <> if active then " active" else ""]
+            playButton = case playState of
+              Play -> button' false (SendCmd "pause") [fa "pause"]
+              _ -> button' false (SendCmd "play") [fa "play"]
 
         songInfo (Song { file, title, artist, album }) = HH.div_
             [HH.img [toClass "img-responsive hidden-xs center-block", src $ "/image/" <> file]

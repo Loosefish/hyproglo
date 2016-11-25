@@ -64,7 +64,10 @@ newtype Status = Status
     { repeat :: Boolean
     , random :: Boolean
     , single :: Boolean
+    , playState :: PlayState
     }
+
+data PlayState = Play | Stop | Pause
 -- volume: -1
 -- consume: 0
 -- playlist: 2
