@@ -65,7 +65,7 @@ ui = H.parentComponent { render, eval, peek: Nothing }
   where
     eval :: Query ~> ParentDSL State ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
     eval (SetView (Albums artist) next) = do
-      H.modify (_ { view = Albums artist})
+      H.modify (_ { view = Albums artist })
       query' pathAlbums CAL.Slot (H.action $ CAL.SetArtist artist)
       pure next
 

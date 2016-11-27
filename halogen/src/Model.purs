@@ -34,6 +34,7 @@ derive instance eqAlbum :: Eq Album
 albumArtist (Album a) = a.artist
 albumDate (Album a) = a.date
 albumTitle (Album a) = a.title
+albumId (Album a) = a.date <> "|" <> a.title
 
 
 -- Song

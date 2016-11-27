@@ -8,20 +8,23 @@ import Data.Array as A
 import Data.Array ((:))
 import Data.String as S
 
+import DOM.HTML.Types (WINDOW)
+
 import Halogen (Component, ComponentDSL, ComponentHTML)
 import Halogen as H
 import Halogen.HTML.Indexed as HH
-import Halogen.HTML.Properties.Indexed (src, colSpan)
+import Halogen.HTML.Properties.Indexed (src, colSpan, id_)
 
-import Model (Artist(..), Album(..), Song(..), AppEffects)
+import Model (Artist(..), Album(..), Song(..), AppEffects, albumId, songAlbum)
 import Mpd (fetchSongs, fetchAlbums', clear, addAlbum, addSong, play)
-import Util (toClass, fa, clickable, nbsp, addProp, stripNum, formatTime, onClickDo, dirname)
+import Util (toClass, fa, clickable, nbsp, addProp, stripNum, formatTime, onClickDo)
+
+foreign import scrollToId :: forall eff. String -> Eff (window :: WINDOW | eff) Unit
 
 
 type State =
     { artist :: Artist
     , albums :: Array (Tuple Album (Array Song))
-    , focus :: Maybe Album
     , busy :: Boolean
     , currentSong :: Maybe Song
     }
@@ -31,7 +34,6 @@ init :: Artist -> State
 init a =
     { artist: a
     , albums: []
-    , focus: Nothing
     , busy: false
     , currentSong: Nothing
     }
@@ -66,7 +68,7 @@ ui = H.lifecycleComponent
         pure next
 
     eval (Focus album next) = do
-        H.modify (_ { focus = Just album })
+        H.fromEff $ scrollToId $ albumId album
         pure next
 
     eval (PlayAlbum album i next) = do
@@ -103,12 +105,16 @@ ui = H.lifecycleComponent
 
         links = HH.ul [toClass $ "nav nav-pills"] $ map albumLink albums
 
-        albumLink (Tuple album _) = HH.li [clickable] [HH.a_ $ albumTitle album]
+        albumLink (Tuple album _) = HH.li
+            [ toClass $ "clickable" <> maybe "" (\s -> if songAlbum s == Just album then " active" else "") state.currentSong
+            , onClickDo $ Focus album
+            ]
+            [HH.a_ $ albumTitle album]
 
         albumTitle (Album { title, date }) = [HH.text $ title <> nbsp, HH.small_ $ map HH.text ["(", S.take 4 date, ")"]]
 
         albumRow (Tuple album songs) =
-            HH.div [toClass "row"]
+            HH.div [id_ $ albumId album,toClass "row"]
                 [ HH.div [toClass "col-xs-12"] [HH.h5_ [HH.span [clickable, onClickDo $ PlayAlbum album 0] $ albumTitle album, HH.text nbsp, addProp (clickable) $ fa "plus-circle"]]
                 , HH.div [toClass "col-xs-12 col-sm-8"] $ [songTable]
                 , HH.div [toClass "col-sm-4 col-xs-hidden"] [image $ A.head songs]
