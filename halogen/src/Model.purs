@@ -2,7 +2,7 @@ module Model where
 
 import Hpg.Prelude
 
-import Halogen (HalogenEffects)
+import Halogen (HalogenEffects, Component, ComponentDSL)
 import Network.HTTP.Affjax (AJAX)
 import DOM.HTML.Types (WINDOW)
 import Control.Monad.Eff.Console (CONSOLE)
@@ -13,6 +13,13 @@ type AppEffects eff = HalogenEffects
     , console :: CONSOLE
     , window :: WINDOW
     | eff)
+
+type AppChild s q =
+  forall eff. Unit -> { component :: Component s q (Aff (AppEffects eff)), initialState :: s }
+
+type AppUpdate q s = forall eff. q ~> ComponentDSL s q (Aff (AppEffects eff))
+
+type AppUi s q = forall eff. Component s q (Aff (AppEffects eff))
 
 
 -- Artist

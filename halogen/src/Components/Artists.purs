@@ -1,63 +1,68 @@
-module Components.Artists where
+module Components.Artists
+  ( Query(..)
+  , State(..)
+  , init
+  , Slot(..)
+  , child
+  ) where
 
 import Hpg.Prelude
 
 import Data.Array as A
 import Data.Array ((:))
 import Data.String as S
+import Data.NonEmpty as N
 
-import Halogen (Component, ComponentDSL, ComponentHTML)
-import Halogen as H
-import Halogen.HTML.Indexed as HH
-{-- import Halogen.HTML.Properties.Indexed (href) --}
+import Halogen as HA
+import Halogen.HTML.Indexed as H
 
-import Model (Artist(..), AppEffects)
+import Model (Artist(..), AppUi, AppUpdate, AppChild)
 import Mpd (fetchAlbumArtists)
 import Util (viewLiA, toClass)
 
 
-type State = Array Artist
-
-
 data Query a = LoadArtists a
-data Slot = Slot
-derive instance eqSlot :: Eq Slot
-derive instance ordSlot :: Ord Slot
-
+type State = Array Artist
 
 init :: State
 init = []
 
 
-ui :: forall eff. Component State Query (Aff (AppEffects eff))
-ui = H.lifecycleComponent
+eval :: AppUpdate Query State
+eval (LoadArtists next) = do
+    HA.set <$> HA.fromAff fetchAlbumArtists
+    pure next
+
+
+render :: State -> HA.ComponentHTML Query
+render artists = outer $ header : map artistGroup artistsByLetter
+  where
+    outer = H.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"]
+    header = H.h4 [toClass "page-header"] [H.text "Album Artists"]
+    artistGroup group = H.span_ $
+        [ H.text $ letter $ N.head group
+        , H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
+        ]
+    artistLink (Artist { name }) = viewLiA ("#/music/" <> name) [H.text name]
+    artistsByLetter = A.groupBy (eqBy letter) artists
+    letter (Artist { name }) = S.toUpper $ S.take 1 name
+
+
+-- Component
+
+data Slot = Slot
+derive instance eqSlot :: Eq Slot
+derive instance ordSlot :: Ord Slot
+
+
+ui :: AppUi State Query
+ui = HA.lifecycleComponent
     { render
     , eval
-    , initializer: Just $ H.action LoadArtists
+    , initializer: Just $ HA.action LoadArtists
     , finalizer: Nothing
     }
-  where
-    eval :: Query ~> ComponentDSL State Query (Aff (AppEffects eff))
-    eval (LoadArtists next) = do
-        artists <- H.fromAff fetchAlbumArtists
-        H.set artists
-        pure next
-
-    render :: State -> ComponentHTML Query
-    render artists = 
-        HH.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"] $
-        (HH.h4 [toClass "page-header"] [HH.text "Album Artists"])
-        : (map (artistGroup <<< A.fromFoldable) $ A.groupBy (\a b -> letter a == letter b) artists)
-      where
-        artistLink a@(Artist { name }) = viewLiA ("#/music/" <> name) [HH.text name]
-
-        artistGroup group = HH.span_ $ A.catMaybes
-            [ HH.text <<< letter <$> A.head group
-            , Just $ HH.ul [toClass "nav nav-pills"] $ map artistLink group
-            ]
-
-        letter (Artist { name }) = S.toUpper $ S.take 1 name
 
 
-child :: forall eff. Unit -> { component :: Component State Query (Aff (AppEffects eff)), initialState :: State }
+child :: AppChild State Query
 child _ = { component: ui, initialState: init }

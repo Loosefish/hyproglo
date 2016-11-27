@@ -12,6 +12,7 @@ module Hpg.Prelude
     , module Data.String
     , module Data.Traversable
     , module Data.Tuple
+    , eqBy
     ) where
 
 import Prelude
@@ -29,3 +30,6 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), Replacement(..))
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)
+
+eqBy :: forall a b. (Eq b) => (a -> b) -> a -> a -> Boolean
+eqBy f = (\x y -> f x == f y)
