@@ -10,6 +10,7 @@ module Hpg.Prelude
     , module Data.List
     , module Data.Maybe
     , module Data.String
+    , module Data.Traversable
     , module Data.Tuple
     ) where
 
@@ -26,4 +27,5 @@ import Data.Functor.Coproduct (Coproduct(..))
 import Data.List (List(..))
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), Replacement(..))
+import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)

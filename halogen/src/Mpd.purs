@@ -160,12 +160,17 @@ parseStatus pairs = do
     random <- toBoolean <$> lookup "random" pairs
     single <- toBoolean <$> lookup "single" pairs
     playState <- parsePlayState =<< lookup "state" pairs
-    pure $ Status { repeat, random, single, playState }
+    playlistLength <- fromString =<< lookup "playlistlength" pairs
+    let time = parseTime =<< lookup "time" pairs
+    pure $ Status { repeat, random, single, playState, time, playlistLength }
   where
     parsePlayState "play" = Just Play
     parsePlayState "pause" = Just Pause
     parsePlayState "stop" = Just Stop
     parsePlayState _ = Nothing
+    parseTime t = case (map fromString $ S.split (S.Pattern ":") t) of
+      [Just elapsed, Just total] -> Just $ Tuple elapsed total
+      _ -> Nothing
 
 -- Basic
 
@@ -183,10 +188,12 @@ toAssoc (Mpd (Left _)) = Nil
 toAssoc (Mpd (Right content)) = L.mapMaybe (splitOnce ": ") lines
   where
     lines = L.fromFoldable $ S.split (Pattern "\n") content
-    splitOnce p s =
-        (\ i -> Tuple (S.take i s) (S.drop (i + S.length p) s))
-        <$> S.indexOf (Pattern p) s
 
+
+splitOnce :: String -> String -> Maybe (Tuple String String)
+splitOnce p s = case S.indexOf (Pattern p) s of
+    Just i -> Just $ Tuple (S.take i s) (S.drop (i + S.length p) s)
+    _ -> Nothing
 
 group :: Assoc String String -> List (Assoc String String)
 group Nil = Nil

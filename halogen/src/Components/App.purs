@@ -6,6 +6,7 @@ import Data.Array ((:), catMaybes)
 
 import Halogen as H
 import Halogen (Component, ChildF, ParentDSL, ParentHTML, ParentState)
+import Halogen.Component (query')
 import Halogen.Component.ChildPath (ChildPath, cpL, cpR, (:>))
 import Halogen.HTML.Indexed as HH
 import Halogen.HTML.Properties.Indexed (href, src)
@@ -14,7 +15,7 @@ import Components.Albums as CAL
 import Components.Artists as CAR
 import Components.Playlist as CP
 import Model
-import Util (toClass, nbsp, fa, trimDate, onClickDo)
+import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime)
 import Mpd (currentSong, fetchStatus, queryMpd)
 
 
@@ -63,15 +64,21 @@ ui :: forall eff. Component (State' (Aff (AppEffects eff))) Query' (Aff (AppEffe
 ui = H.parentComponent { render, eval, peek: Nothing }
   where
     eval :: Query ~> ParentDSL State ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
+    eval (SetView (Albums artist) next) = do
+      H.modify (_ { view = Albums artist})
+      query' pathAlbums CAL.Slot (H.action $ CAL.SetArtist artist)
+      pure next
+
     eval (SetView view next) = do
-        H.modify (_ { view = view})
-        pure next
+      H.modify (_ { view = view})
+      pure next
 
     eval (Update next) = do
-        status <- H.fromAff $ fetchStatus
-        song <- H.fromAff $ currentSong
-        H.modify (_ { status = status, song = song})
-        pure next
+      status <- H.fromAff $ fetchStatus
+      song <- H.fromAff $ currentSong
+      H.modify (_ { status = status, song = song})
+      query' pathAlbums CAL.Slot (H.action $ CAL.SetCurrentSong song)
+      pure next
 
     eval (SendCmd cmd next) = do
         status <- H.gets _.status
@@ -89,8 +96,8 @@ ui = H.parentComponent { render, eval, peek: Nothing }
       where
         sidebar =
             [ HH.h4 [toClass "page-header"] [HH.text $ "HyProGlo" <> nbsp]
-            , HH.ul [toClass "nav nav-sidebar"] [musicLink, playlistLink]
-            , HH.div_ $ catMaybes [songInfo <$> state.song, controls <$> state.status]
+            , HH.ul [toClass "nav nav-sidebar"] [musicLink, playlistLink state.status]
+            , HH.div_ $ catMaybes [songInfo <$> state.status <*> state.song, controls <$> state.status]
             ]
 
         musicLink = navLink active "#/music" $ (fa "database fa-fw") : (HH.text $ nbsp <> "Music") : extra
@@ -102,8 +109,15 @@ ui = H.parentComponent { render, eval, peek: Nothing }
                 Albums (Artist { name }) -> [HH.text $ nbsp <> "/" <> nbsp <> name]
                 _ -> []
 
-        playlistLink = navLink active "#/playlist" [fa "list fa-fw", HH.text $ nbsp <> "Playlist"]
+        playlistLink status =
+            navLink active "#/playlist" $ catMaybes
+                [ Just $ fa "list fa-fw"
+                , Just $ HH.text $ nbsp <> "Playlist"
+                , playlistBadge <$> status
+                ]
           where
+            playlistBadge (Status { playlistLength }) =
+                HH.span [toClass "badge pull-right"] [HH.text $ show $ playlistLength]
             active = case state.view of
                 Playlist -> true
                 _ -> false
@@ -136,13 +150,13 @@ ui = H.parentComponent { render, eval, peek: Nothing }
               Play -> button' false (SendCmd "pause") [fa "pause"]
               _ -> button' false (SendCmd "play") [fa "play"]
 
-        songInfo (Song { file, title, artist, album }) = HH.div_
+        songInfo (Status { time }) (Song { file, title, artist, album }) = HH.div_
             [HH.img [toClass "img-responsive hidden-xs center-block", src $ "/image/" <> file]
             , HH.a (catMaybes [albumsUrl <$> album]) $ catMaybes
                 [ Just $ HH.h5 [toClass "text-center"] [HH.text title]
                 , Just $ HH.h6 [toClass "text-center"] [HH.text artist]
                 , albumInfo <$> album
-                , Just $ progress
+                , progress time
                 ]
             , HH.div [] []
             ]
@@ -152,5 +166,13 @@ ui = H.parentComponent { render, eval, peek: Nothing }
                 HH.h6 [toClass "text-center"]
                     [HH.text a.title, HH.small_ [HH.text $ nbsp <> "(" <> trimDate a.date <> ")"]]
 
-            progress = HH.div [toClass "progress"] [HH.div [toClass "progress-bar"] [HH.text "0:17 / 3:00"]]
+            progress (Just (Tuple elapsed total)) =
+              Just $ HH.div [toClass "progress"] [ HH.div [toClass "progress-bar"]
+                                                 $ map HH.text
+                                                   [ formatTime elapsed
+                                                   , nbsp <> "/" <> nbsp
+                                                   , formatTime total
+                                                   ]
+                                                 ]
+            progress _ = Nothing
 {--     <div class="progress"> <div class="progress-bar" style="width: 10%;"> 0:17&nbsp;/&nbsp;3:00 </div> </div> --}

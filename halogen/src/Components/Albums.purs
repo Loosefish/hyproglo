@@ -23,6 +23,7 @@ type State =
     , albums :: Array (Tuple Album (Array Song))
     , focus :: Maybe Album
     , busy :: Boolean
+    , currentSong :: Maybe Song
     }
 
 
@@ -32,6 +33,7 @@ init a =
     , albums: []
     , focus: Nothing
     , busy: false
+    , currentSong: Nothing
     }
 
 
@@ -40,6 +42,8 @@ data Query a
     | Focus Album a
     | PlayAlbum Album Int a
     | AddSong Song a
+    | SetArtist Artist a
+    | SetCurrentSong (Maybe Song) a
 
 data Slot = Slot
 derive instance eqSlot :: Eq Slot
@@ -75,18 +79,26 @@ ui = H.lifecycleComponent
         H.fromAff $ addSong song
         pure next
 
+    eval (SetArtist artist next) = do
+      H.modify (_ {artist = artist})
+      eval (LoadAlbums next)
+
+    eval (SetCurrentSong song next) = do
+      H.modify (_ {currentSong = song})
+      pure next
+
     render :: State -> ComponentHTML Query
     render state =
-        HH.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"]
-            [ header
-            , HH.span
-                (if state.busy then [toClass "hidden"] else [])
-                (links : HH.hr_ : map albumRow albums)
-            ]
+      HH.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"]
+      [ header
+      , HH.span
+        (if state.busy then [toClass "hidden"] else [])
+        (links : HH.hr_ : map albumRow albums)
+      ]
       where
         name = (\(Artist { name }) -> name) state.artist
         albums = state.albums
-        header = HH.h4 [toClass "page-header"] $ 
+        header = HH.h4 [toClass "page-header clickable"] $ 
             (HH.text $ name <> nbsp) : if state.busy then [fa "circle-o-notch fa-spin"] else []
 
         links = HH.ul [toClass $ "nav nav-pills"] $ map albumLink albums
@@ -120,13 +132,13 @@ ui = H.lifecycleComponent
                 songOrDisc i s = [songRow i s]
 
                 songRow i s@(Song { title, track, time, artist, disc }) =
-                    HH.tr_ $ A.catMaybes
-                        [ Just $ HH.td_ [HH.text $ fromMaybe "" $ stripNum track]
-                        , if various then Just $ HH.td_ [HH.text artist] else Nothing
-                        , Just $ HH.td [clickable, onClickDo $ PlayAlbum album i] [HH.text title]
-                        , Just $ HH.td_ [HH.text $ formatTime time]
-                        , Just $ HH.td [clickable, onClickDo $ AddSong s] [fa "plus-circle"]
-                        ]
+                  HH.tr (if maybe false ((==) s) state.currentSong then [toClass "info"] else [])
+                  $ A.catMaybes [ Just $ HH.td_ [HH.text $ fromMaybe "" $ stripNum track]
+                                , if various then Just $ HH.td_ [HH.text artist] else Nothing
+                                , Just $ HH.td [clickable, onClickDo $ PlayAlbum album i] [HH.text title]
+                                , Just $ HH.td_ [HH.text $ formatTime time]
+                                , Just $ HH.td [clickable, onClickDo $ AddSong s] [fa "plus-circle"]
+                                ]
 
                 footer = HH.tr_ $ 
                     [ HH.td [colSpan $ width - 2] []

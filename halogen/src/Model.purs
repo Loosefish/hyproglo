@@ -65,6 +65,8 @@ newtype Status = Status
     , random :: Boolean
     , single :: Boolean
     , playState :: PlayState
+    , time :: Maybe (Tuple Int Int)
+    , playlistLength :: Int
     }
 
 data PlayState = Play | Stop | Pause
@@ -76,9 +78,9 @@ data PlayState = Play | Stop | Pause
 -- state: pause
 -- song: 3
 -- songid: 4
--- time: 189:272
--- elapsed: 189.289
--- bitrate: 0
--- audio: 44100:24:2
+-- !time: 189:272
+-- !elapsed: 189.289
+-- !bitrate: 0
+-- !audio: 44100:24:2
 -- nextsong: 4
 -- nextsongid: 5
