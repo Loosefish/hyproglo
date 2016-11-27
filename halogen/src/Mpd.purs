@@ -16,7 +16,7 @@ import Data.Tuple (lookup)
 
 import Network.HTTP.Affjax (AJAX, post)
 
-import Model
+import Model (Album(..), Artist(..), PlayState(..), Song(..), Status(..))
 
 
 type Assoc a b = List (Tuple a b)
@@ -171,6 +171,7 @@ parseStatus pairs = do
     parseTime t = case (map fromString $ S.split (S.Pattern ":") t) of
       [Just elapsed, Just total] -> Just $ Tuple elapsed total
       _ -> Nothing
+
 
 -- Basic
 

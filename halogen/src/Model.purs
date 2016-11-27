@@ -19,6 +19,8 @@ type AppEffects eff = HalogenEffects
 
 newtype Artist = Artist { name :: String }
 derive instance eqArtist :: Eq Artist
+
+artistName :: Artist -> String
 artistName (Artist a) = a.name
 
 
@@ -31,9 +33,7 @@ newtype Album = Album
     }
 derive instance eqAlbum :: Eq Album
 
-albumArtist (Album a) = a.artist
-albumDate (Album a) = a.date
-albumTitle (Album a) = a.title
+albumId :: Album -> String
 albumId (Album a) = a.date <> "|" <> a.title
 
 
@@ -50,13 +50,8 @@ newtype Song = Song
     }
 derive instance eqSong :: Eq Song
 
+songAlbum :: Song -> Maybe Album
 songAlbum (Song s) = s.album
-songArtist (Song s) = s.artist
-songDisc (Song s) = s.disc
-songFile (Song s) = s.file
-songTime (Song s) = s.time
-songTitle (Song s) = s.title
-songTrack (Song s) = s.track
 
 
 -- Status

@@ -2,8 +2,6 @@ module Components.Albums where
 
 import Hpg.Prelude
 
-import Control.Parallel (parSequence)
-
 import Data.Array as A
 import Data.Array ((:))
 import Data.String as S
@@ -16,7 +14,7 @@ import Halogen.HTML.Indexed as HH
 import Halogen.HTML.Properties.Indexed (src, colSpan, id_)
 
 import Model (Artist(..), Album(..), Song(..), AppEffects, albumId, songAlbum)
-import Mpd (fetchSongs, fetchAlbums', clear, addAlbum, addSong, play)
+import Mpd (fetchAlbums', clear, addAlbum, addSong, play)
 import Util (toClass, fa, clickable, nbsp, addProp, stripNum, formatTime, onClickDo)
 
 foreign import scrollToId :: forall eff. String -> Eff (window :: WINDOW | eff) Unit

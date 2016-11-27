@@ -9,12 +9,12 @@ import Halogen (Component, ChildF, ParentDSL, ParentHTML, ParentState)
 import Halogen.Component (query')
 import Halogen.Component.ChildPath (ChildPath, cpL, cpR, (:>))
 import Halogen.HTML.Indexed as HH
-import Halogen.HTML.Properties.Indexed (href, src, value)
+import Halogen.HTML.Properties.Indexed (href, src)
 
 import Components.Albums as CAL
 import Components.Artists as CAR
 import Components.Playlist as CP
-import Model
+import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), artistName)
 import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
 import Mpd (currentSong, fetchStatus, queryMpd)
 
@@ -168,7 +168,7 @@ ui = H.parentComponent { render, eval, peek: Nothing }
             progress (Just (Tuple elapsed total)) = [outer $ inner label]
               where
                 outer = HH.div [toClass "progress"] <<< singleton
-                inner = HH.div [toClass "progress-bar", styleProp percent]
-                percent = "width:" <> show ((elapsed * 100) / total) <> "%;"
+                inner = HH.div [toClass "progress-bar", percent]
+                percent = styleProp $ "width:" <> show ((elapsed * 100) / total) <> "%;"
                 label = map HH.text [formatTime elapsed, nbsp <> "/" <> nbsp, formatTime total ]
             progress _ = []
