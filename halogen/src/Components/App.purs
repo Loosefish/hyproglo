@@ -2,20 +2,20 @@ module Components.App where
 
 import Hpg.Prelude
 
-import Data.Array ((:), catMaybes)
+import Data.Array ((:), catMaybes, singleton)
 
 import Halogen as H
 import Halogen (Component, ChildF, ParentDSL, ParentHTML, ParentState)
 import Halogen.Component (query')
 import Halogen.Component.ChildPath (ChildPath, cpL, cpR, (:>))
 import Halogen.HTML.Indexed as HH
-import Halogen.HTML.Properties.Indexed (href, src)
+import Halogen.HTML.Properties.Indexed (href, src, value)
 
 import Components.Albums as CAL
 import Components.Artists as CAR
 import Components.Playlist as CP
 import Model
-import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime)
+import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
 import Mpd (currentSong, fetchStatus, queryMpd)
 
 
@@ -156,9 +156,8 @@ ui = H.parentComponent { render, eval, peek: Nothing }
                 [ Just $ HH.h5 [toClass "text-center"] [HH.text title]
                 , Just $ HH.h6 [toClass "text-center"] [HH.text artist]
                 , albumInfo <$> album
-                , progress time
                 ]
-            , HH.div [] []
+            , HH.div_ $ progress time
             ]
           where
             albumsUrl (Album { artist }) = href $ "#/music/" <> artistName artist
@@ -166,13 +165,10 @@ ui = H.parentComponent { render, eval, peek: Nothing }
                 HH.h6 [toClass "text-center"]
                     [HH.text a.title, HH.small_ [HH.text $ nbsp <> "(" <> trimDate a.date <> ")"]]
 
-            progress (Just (Tuple elapsed total)) =
-              Just $ HH.div [toClass "progress"] [ HH.div [toClass "progress-bar"]
-                                                 $ map HH.text
-                                                   [ formatTime elapsed
-                                                   , nbsp <> "/" <> nbsp
-                                                   , formatTime total
-                                                   ]
-                                                 ]
-            progress _ = Nothing
-{--     <div class="progress"> <div class="progress-bar" style="width: 10%;"> 0:17&nbsp;/&nbsp;3:00 </div> </div> --}
+            progress (Just (Tuple elapsed total)) = [outer $ inner label]
+              where
+                outer = HH.div [toClass "progress"] <<< singleton
+                inner = HH.div [toClass "progress-bar", styleProp percent]
+                percent = "width:" <> show ((elapsed * 100) / total) <> "%;"
+                label = map HH.text [formatTime elapsed, nbsp <> "/" <> nbsp, formatTime total ]
+            progress _ = []

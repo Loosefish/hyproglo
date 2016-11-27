@@ -106,7 +106,7 @@ ui = H.lifecycleComponent
         links = HH.ul [toClass $ "nav nav-pills"] $ map albumLink albums
 
         albumLink (Tuple album _) = HH.li
-            [ toClass $ "clickable" <> maybe "" (\s -> if songAlbum s == Just album then " active" else "") state.currentSong
+            [ toClass $ "clickable" <> if (songAlbum =<< state.currentSong) == Just album then " active" else ""
             , onClickDo $ Focus album
             ]
             [HH.a_ $ albumTitle album]
@@ -138,13 +138,14 @@ ui = H.lifecycleComponent
                 songOrDisc i s = [songRow i s]
 
                 songRow i s@(Song { title, track, time, artist, disc }) =
-                  HH.tr (if maybe false ((==) s) state.currentSong then [toClass "info"] else [])
-                  $ A.catMaybes [ Just $ HH.td_ [HH.text $ fromMaybe "" $ stripNum track]
-                                , if various then Just $ HH.td_ [HH.text artist] else Nothing
-                                , Just $ HH.td [clickable, onClickDo $ PlayAlbum album i] [HH.text title]
-                                , Just $ HH.td_ [HH.text $ formatTime time]
-                                , Just $ HH.td [clickable, onClickDo $ AddSong s] [fa "plus-circle"]
-                                ]
+                    HH.tr (if state.currentSong == Just s then [toClass "info"] else [])
+                    $ A.catMaybes
+                        [ Just $ HH.td_ [HH.text $ fromMaybe "" $ stripNum track]
+                        , if various then Just $ HH.td_ [HH.text artist] else Nothing
+                        , Just $ HH.td [clickable, onClickDo $ PlayAlbum album i] [HH.text title]
+                        , Just $ HH.td_ [HH.text $ formatTime time]
+                        , Just $ HH.td [clickable, onClickDo $ AddSong s] [fa "plus-circle"]
+                        ]
 
                 footer = HH.tr_ $ 
                     [ HH.td [colSpan $ width - 2] []

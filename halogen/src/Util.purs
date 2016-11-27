@@ -6,7 +6,9 @@ import Data.Array ((:))
 import Data.Char (fromCharCode)
 import Data.String as S
 
-import Halogen.HTML.Core (className, HTML(Element))
+import Unsafe.Coerce (unsafeCoerce)
+
+import Halogen.HTML.Core (className, HTML(Element), Prop(..), prop, propName, attrName)
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as H
 import Halogen.HTML.Properties.Indexed (classes, href, IProp(..), I)
@@ -55,4 +57,9 @@ clickable  = toClass "clickable"
 
 onClickDo = HE.onClick <<< HE.input_
 
-dirname = S.takeWhile ((/=) '/')  -- Only handles depth == 1
+
+styleProp :: forall r i. String -> IProp (style :: I | r) i
+styleProp = refine $ prop (propName "style") (Just $ attrName "style")
+  where
+    refine :: forall a r i. (a -> Prop i) -> a -> IProp r i
+    refine = unsafeCoerce
