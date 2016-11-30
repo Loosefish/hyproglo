@@ -163,34 +163,27 @@ fetchSongs (Album { artist: Artist artist, date: date, title: title }) =
         ["find Album", quote title, "Date", quote date, "AlbumArtist", quote artist.name]
 
 
--- Playlist
-
-currentSong :: forall eff. Aff (ajax :: AJAX | eff) (Maybe Song)
-currentSong = fetchOne "currentsong"
-
-
-clear :: MpdEffect
-clear = queryMpd "clear"
-
-
-addSong :: Song -> MpdEffect
-addSong (Song { file }) = queryMpd $ "add " <> quote file
-
-
-addAlbum :: Album -> MpdEffect
-addAlbum (Album { artist, date, title }) =
-    queryMpd $ S.joinWith " "
-        [ "findadd"
-        , "AlbumArtist", quote $ (\(Artist { name }) -> name) artist
-        , "Date", quote date
-        , "Album", quote title
-        ]
-
-
 -- Control
 
-play :: Int -> MpdEffect
-play i = queryMpd $ "play " <> show i
+data MpdCmd = Play (Maybe Int) | Clear | AddSong Song | AddAlbum Album
+
+sendCmds :: Array MpdCmd -> MpdEffect
+sendCmds cmds = queryMpd $ S.joinWith "\n" $ map raw cmds
+  where
+    raw cmd = case cmd of
+      Play i -> "play " <> maybe "" show i
+      Clear -> "clear"
+      AddSong (Song { file }) -> "add " <> quote file
+      AddAlbum (Album { artist, date, title }) ->
+        S.joinWith " "
+            [ "findadd"
+            , "AlbumArtist", quote $ (\(Artist { name }) -> name) artist
+            , "Date", quote date
+            , "Album", quote title
+            ]
+          
+sendCmd ::  MpdCmd -> MpdEffect
+sendCmd cmd = sendCmds [cmd]
 
 
 -- Status
@@ -211,12 +204,24 @@ instance fromMpdStatus :: FromMpd Status where
 
     
 instance fromMpdPlayState :: FromMpd PlayState where
-  parseOne pairs = case lookup "playstate" pairs of
-    Just "play" -> Just Play
-    Just "pause" -> Just Pause
-    Just "stop" -> Just Stop
+  parseOne pairs = case lookup "state" pairs of
+    Just "play" -> Just Playing
+    Just "pause" -> Just Paused
+    Just "stop" -> Just Stopped
     _ -> Nothing
 
 
 fetchStatus :: forall eff. Aff (ajax :: AJAX | eff) (Maybe Status)
 fetchStatus = fetchOne "status"
+
+
+currentSong :: forall eff. Aff (ajax :: AJAX | eff) (Maybe Song)
+currentSong = fetchOne "currentsong"
+
+
+fetchStatusSong :: forall eff. Aff (ajax :: AJAX | eff) (Tuple (Maybe Status) (Maybe Song))
+fetchStatusSong = do
+    pairs <- toAssoc <$> queryMpd "status\ncurrentsong"
+    let status = parseOne pairs
+    let song = parseOne pairs
+    pure $ Tuple status song

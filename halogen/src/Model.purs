@@ -72,7 +72,7 @@ newtype Status = Status
     , playlistLength :: Int
     }
 
-data PlayState = Play | Stop | Pause
+data PlayState = Playing | Stopped | Paused
 -- volume: -1
 -- consume: 0
 -- playlist: 2

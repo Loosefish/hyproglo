@@ -16,7 +16,7 @@ import Components.Artists as CAR
 import Components.Playlist as CP
 import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), artistName)
 import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
-import Mpd (currentSong, fetchStatus, queryMpd)
+import Mpd (queryMpd, fetchStatusSong)
 
 
 type State =
@@ -75,8 +75,11 @@ eval (SetView view next) = do
     pure next
 
 eval (Update next) = do
-    status <- H.fromAff $ fetchStatus
-    song <- H.fromAff $ currentSong
+    both <- H.fromAff $ fetchStatusSong
+    let status = fst both
+    let song = snd both
+    -- status <- H.fromAff $ fetchStatus
+    -- song <- H.fromAff $ currentSong
     H.modify (_ { status = status, song = song})
     query' pathAlbums CAL.Slot (H.action $ CAL.SetCurrentSong song)
     pure next
@@ -148,7 +151,7 @@ render state =
         button active = HH.a [toClass $ "btn btn-default" <> if active then " active" else ""]
         button' active action = HH.a [onClickDo action, toClass $ "btn btn-default" <> if active then " active" else ""]
         playButton = case playState of
-            Play -> button' false (SendCmd "pause") [fa "pause"]
+            Playing -> button' false (SendCmd "pause") [fa "pause"]
             _ -> button' false (SendCmd "play") [fa "play"]
 
     songInfo (Status { time }) (Song { file, title, artist, album }) = HH.div_
