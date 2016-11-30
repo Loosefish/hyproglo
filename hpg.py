@@ -31,7 +31,7 @@ def home():
     return static_file('index.html', root='./server')
 
 
-@route('/cgi-bin/mpd', method='POST')
+@route('/mpd', method='POST')
 def mpd():
     answer = {"status": None, "result": None, "error": None}
     try:

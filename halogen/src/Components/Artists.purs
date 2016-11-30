@@ -30,7 +30,7 @@ init = []
 
 eval :: AppUpdate Query State
 eval (LoadArtists next) = do
-    HA.set <$> HA.fromAff fetchAlbumArtists
+    HA.set =<< HA.fromAff fetchAlbumArtists
     pure next
 
 

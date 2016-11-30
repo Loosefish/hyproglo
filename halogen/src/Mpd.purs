@@ -58,14 +58,14 @@ parseMany = A.fromFoldable <<< L.mapMaybe parseOne <<< group <<< toAssoc
 
 
 fetch :: forall a eff. (FromMpd a) => String -> Aff (ajax :: AJAX | eff) (Array a)
-fetch q = A.fromFoldable <<< parseMany <$> queryMpd q
+fetch q = parseMany <$> queryMpd q
 
 
 -- Basic
 
 queryMpd :: String -> MpdEffect
 queryMpd code = do
-    result <- post "/cgi-bin/mpd" code
+    result <- post "/mpd" code
     let response = result.response
     pure case runExcept $ read response of
         Right mpd -> mpd
@@ -119,7 +119,7 @@ instance fromMpdArtist :: FromMpd Artist where
         pure $ Artist { name }
 
 fetchAlbumArtists :: forall eff. Aff (ajax :: AJAX | eff) (Array Artist)
-fetchAlbumArtists = fetch "listAlbumArtist"
+fetchAlbumArtists = fetch "list AlbumArtist"
 
 
 -- Album

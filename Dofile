@@ -6,13 +6,6 @@ do_() {
 
 
 do_server() {
-    # cd server
-    # python -m http.server --cgi 8888
-    # touch server.log
-    # tail -f server.log &
-    # log=$!
-    # lighttpd -D -f lighttpd.conf
-    # kill $!
     python hpg.py
 }
 
