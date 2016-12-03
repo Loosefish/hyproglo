@@ -7,6 +7,7 @@ import os.path
 
 from bottle import route, run, static_file, request
 
+
 SOCK_ADDR = "/home/henry/.config/mpd/socket"
 
 

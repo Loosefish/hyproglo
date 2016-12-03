@@ -64,3 +64,7 @@ styleProp = refine $ prop (propName "style") (Just $ attrName "style")
   where
     refine :: forall a r' i'. (a -> Prop i') -> a -> IProp r' i'
     refine = unsafeCoerce
+
+
+empty :: forall p i. HTML p i
+empty = H.text ""

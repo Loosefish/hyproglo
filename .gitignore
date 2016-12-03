@@ -2,3 +2,4 @@ halogen/output
 halogen/bower_components
 halogen/node_modules
 server/app.js
+.psci_modules

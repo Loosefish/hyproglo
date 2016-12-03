@@ -27,6 +27,7 @@ type AppUi s q = forall eff. Component s q (Aff (AppEffects eff))
 newtype Artist = Artist { name :: String }
 derive instance eqArtist :: Eq Artist
 
+
 artistName :: Artist -> String
 artistName (Artist a) = a.name
 
