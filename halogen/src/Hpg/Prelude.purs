@@ -22,7 +22,6 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (log)
 
-import Data.Array (singleton)
 import Data.Either (Either(..))
 import Data.Foldable (sum, and, or, all, any)
 import Data.Functor.Coproduct (Coproduct(..))

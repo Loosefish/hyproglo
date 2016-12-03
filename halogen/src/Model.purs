@@ -80,6 +80,7 @@ newtype Status = Status
     }
 
 data PlayState = Playing | Stopped | Paused
+derive instance eqPlayState :: Eq PlayState
 -- volume: -1
 -- consume: 0
 -- playlist: 2

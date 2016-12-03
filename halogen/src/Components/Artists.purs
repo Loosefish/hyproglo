@@ -17,7 +17,7 @@ import Halogen.HTML.Indexed as H
 
 import Model (Artist(..), AppUi, AppUpdate, AppChild)
 import Mpd (fetchAlbumArtists)
-import Util (viewLiA, toClass, (<%), one, many)
+import Util (viewLiA, toClass, (<%), put, puts)
 
 
 data Query a = LoadArtists a
@@ -36,12 +36,12 @@ eval (LoadArtists next) = do
 render :: State -> HA.ComponentHTML Query
 render artists =
     H.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"] <% do
-        one $ H.h4 [toClass "page-header"] [H.text "Album Artists"]
-        many $ map artistGroup artistsByLetter
+        put $ H.h4 [toClass "page-header"] [H.text "Album Artists"]
+        puts $ map artistGroup artistsByLetter
   where
     artistGroup group = H.span_ <% do
-        one $ H.text $ letter $ N.head group
-        one $ H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
+        put $ H.text $ letter $ N.head group
+        put $ H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
     artistLink (Artist { name }) = viewLiA ("#/music/" <> name) [H.text name]
     artistsByLetter = A.groupBy (eqBy letter) artists
     letter (Artist { name }) = S.toUpper $ S.take 1 name

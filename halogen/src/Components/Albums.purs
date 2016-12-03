@@ -15,7 +15,7 @@ import Halogen.HTML.Properties.Indexed (src, colSpan, id_)
 import Model (Artist, Album(..), Song(..), albumId, songAlbum, AppUi, AppUpdate, AppChild, artistName, songArtist, songDisc)
 import Mpd (sendCmd, sendCmds, fetchAlbums')
 import Mpd as M
-import Util (toClass, fa, clickable, nbsp, stripNum, formatTime, onClickDo, one, many, (<%), whenM)
+import Util (toClass, fa, clickable, nbsp, stripNum, formatTime, onClickDo, put, puts, (<%), putMaybe)
 
 foreign import scrollToId :: forall eff. String -> Eff (window :: WINDOW | eff) Unit
 
@@ -61,13 +61,13 @@ eval (SetCurrentSong song next) =
 render :: State -> ComponentHTML Query
 render { artist, albums, busy, currentSong } =
     H.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"] <% do
-        one header
-        when (A.length albums > 1) (many [links, H.hr_])
-        many $ map albumRow albums
+        put header
+        when (A.length albums > 1) (puts [links, H.hr_])
+        puts $ map albumRow albums
   where
     header = H.h4 [toClass "page-header clickable"] <% do 
-        one $ H.text $ artistName artist
-        when busy $ many [H.text nbsp, fa "circle-o-notch fa-spin"]
+        put $ H.text $ artistName artist
+        when busy $ puts [H.text nbsp, fa "circle-o-notch fa-spin"]
 
     links = H.ul [toClass $ "nav nav-pills"] $ map albumLink albums
       where
@@ -78,26 +78,26 @@ render { artist, albums, busy, currentSong } =
             [H.a_ <% albumTitle album]
 
     albumTitle (Album { title, date }) = do
-        one $ H.text $ title <> nbsp
-        one $ H.small_ $ map H.text ["(", S.take 4 date, ")"]
+        put $ H.text $ title <> nbsp
+        put $ H.small_ $ map H.text ["(", S.take 4 date, ")"]
 
     albumRow (Tuple album songs) =
         H.div [id_ $ albumId album,toClass "row"] <% do
-            one $ H.div [toClass "col-xs-12"] <% do
-                one $ H.h5_ <% do
-                    one $ H.span [clickable, onClickDo $ PlayAlbum album 0] <% albumTitle album
-                    one $ H.text nbsp
-                    one $ fa "plus-circle clickable"
-            one $ H.div [toClass "col-xs-12 col-sm-8"] $ [songTable]
-            whenM (one <<< image) (A.head songs)
+            put $ H.div [toClass "col-xs-12"] <% do
+                put $ H.h5_ <% do
+                    put $ H.span [clickable, onClickDo $ PlayAlbum album 0] <% albumTitle album
+                    put $ H.text nbsp
+                    put $ fa "plus-circle clickable"
+            put $ H.div [toClass "col-xs-12 col-sm-8"] $ [songTable]
+            putMaybe image $ A.head songs
       where
         image (Song { file }) =
             H.div [toClass "col-sm-4 col-xs-hidden"] <% do
-                one $ H.img [src $ "/image/" <> file, toClass "img-responsive center-block"]
+                put $ H.img [src $ "/image/" <> file, toClass "img-responsive center-block"]
 
         songTable = H.table [toClass "table table-condensed table-hover"] <% do
-            one $ H.tbody_ $ A.concat $ A.mapWithIndex songOrDisc songs
-            one $ H.tfoot_ [footer]
+            put $ H.tbody_ $ A.concat $ A.mapWithIndex songOrDisc songs
+            put $ H.tfoot_ [footer]
           where
             various = any (notEq (artistName artist) <<< songArtist) songs
             multidisc = 1 < A.length (A.nub $ A.mapMaybe songDisc songs)
@@ -106,23 +106,23 @@ render { artist, albums, busy, currentSong } =
             songOrDisc i s@(Song { track, disc })
                 | multidisc && maybe false ((==) "1") (stripNum track) = 
                     [ H.tr_ $ A.singleton $ H.th [colSpan width] <% do
-                        one $ fa "circle"
-                        one $ H.text $ nbsp <> (fromMaybe "" $ stripNum disc)
+                        put $ fa "circle"
+                        put $ H.text $ nbsp <> (fromMaybe "" $ stripNum disc)
                     , songRow i s
                     ]
                 | otherwise = [songRow i s]
 
-            songRow i s@(Song { title, track, time, artist, disc }) =
+            songRow i s@(Song { title, track, time, disc }) =
                 H.tr (if currentSong == Just s then [toClass "info"] else []) <% do
-                    one $ H.td_ [H.text $ fromMaybe "" $ stripNum track]
-                    when various $ one $ H.td_ [H.text artist]
-                    one $ H.td [clickable, onClickDo $ PlayAlbum album i] [H.text title]
-                    one $ H.td_ [H.text $ formatTime time]
-                    one $ H.td [clickable, onClickDo $ AddSong s] [fa "plus-circle"]
+                    put $ H.td_ [H.text $ fromMaybe "" $ stripNum track]
+                    when various $ put $ H.td_ [H.text $ songArtist s]
+                    put $ H.td [clickable, onClickDo $ PlayAlbum album i] [H.text title]
+                    put $ H.td_ [H.text $ formatTime time]
+                    put $ H.td [clickable, onClickDo $ AddSong s] [fa "plus-circle"]
 
             footer = H.tr_ <% do 
-                one $ H.td [colSpan $ width - 2] []
-                one $ H.td_ [H.text $ formatTime $ sum $ map (\(Song s) -> s.time) songs]
+                put $ H.td [colSpan $ width - 2] []
+                put $ H.td_ [H.text $ formatTime $ sum $ map (\(Song s) -> s.time) songs]
 
 
 -- Component

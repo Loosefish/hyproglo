@@ -2,7 +2,7 @@ module Components.App where
 
 import Hpg.Prelude
 
-import Data.Array ((:), catMaybes, singleton)
+import Data.Array (catMaybes, singleton)
 
 import Halogen as H
 import Halogen (Component, ChildF, ParentDSL, ParentHTML, ParentState)
@@ -15,7 +15,7 @@ import Components.Albums as CAL
 import Components.Artists as CAR
 import Components.Playlist as CP
 import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), artistName)
-import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp, (<%), one, whenM, many)
+import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp, (<%), put, putMaybe)
 import Mpd (queryMpd, fetchStatusSong)
 
 
@@ -26,6 +26,7 @@ type State =
     }
 
 data View = Artists | Albums Artist | Playlist
+derive instance eqView :: Eq View
 data Query a
     = SetView View a
     | Update a
@@ -86,44 +87,41 @@ eval (SendCmd cmd next) = do
 
 
 render :: forall eff. State -> ParentHTML ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
-render state =
+render { status, song, view } =
     HH.div [toClass "container-fluid"] <% do
-        one $ HH.div [toClass "row"] <% do
-            one $ HH.div [toClass "col-xs-12 col-sm-3 col-md-2 sidebar"] <% do
-                one $ HH.h4 [toClass "page-header"] [HH.text $ "HyProGlo" <> nbsp]
-                one $ HH.ul [toClass "nav nav-sidebar"] [musicLink, playlistLink state.status]
-                one $ HH.div_ $ catMaybes [songInfo <$> state.status <*> state.song, controls <$> state.status]
-            one $ child state.view
+        put $ HH.div [toClass "row"] <% do
+            put $ HH.div [toClass "col-xs-12 col-sm-3 col-md-2 sidebar"] <% do
+                put $ HH.h4 [toClass "page-header"] [HH.text $ "HyProGlo" <> nbsp]
+                put $ HH.ul [toClass "nav nav-sidebar"] <% do
+                    musicLink
+                    playlistLink
+                put $ HH.div_ <% do
+                    putMaybe id (songInfo <$> status <*> song)
+                    putMaybe controls status
+            put $ child view
   where
-    musicLink = navLink active "#/music" $ (fa "database fa-fw") : (HH.text $ nbsp <> "Music") : extra
-      where
-        active = case state.view of
-            Playlist -> false
-            _ -> true
-        extra = case state.view of
-            Albums (Artist { name }) -> [HH.text $ nbsp <> "/" <> nbsp <> name]
-            _ -> []
+    musicLink = navLink (view /= Playlist) "#/music" <% do
+        put $ fa "database fa-fw"
+        put $ (HH.text $ nbsp <> "Music")
+        case view of
+            Albums (Artist { name }) -> put $ HH.text $ nbsp <> "/" <> nbsp <> name
+            _ -> pure unit
 
-    playlistLink status =
-        navLink active "#/playlist" <% do
-            one $ fa "list fa-fw"
-            one $ HH.text $ nbsp <> "Playlist"
-            whenM (one <<< playlistBadge) status
+    playlistLink = navLink (view == Playlist) "#/playlist" <% do
+        put $ fa "list fa-fw"
+        put $ HH.text $ nbsp <> "Playlist"
+        putMaybe playlistBadge status
       where
-        playlistBadge (Status { playlistLength }) =
-            HH.span [toClass "badge pull-right"] [HH.text $ show $ playlistLength]
-        active = case state.view of
-            Playlist -> true
-            _ -> false
+        playlistBadge (Status s) = HH.span [toClass "badge pull-right"] [HH.text $ show $ s.playlistLength]
 
-    navLink active target content =
+    navLink active target content = put $
         HH.li (if active then [toClass "active"] else []) [HH.a [href target] content]
 
     controls (Status { random, repeat, single, playState }) = HH.div_ <% do
         buttonGroup <% do
-            case playState of
-                Playing -> button false (SendCmd "pause") [fa "pause"]
-                _ -> button false (SendCmd "play") [fa "play"]
+            if playState == Playing
+                then button false (SendCmd "pause") [fa "pause"]
+                else button false (SendCmd "play") [fa "play"]
         buttonGroup <% do
             button false (SendCmd "previous") [fa "fast-backward"]
             button false (SendCmd "stop") [fa "stop"]
@@ -133,22 +131,24 @@ render state =
             button repeat (SendCmd $ "repeat " <> if repeat then "0" else "1") [fa "repeat"]
             button single (SendCmd $ "single " <> if single then "0" else "1") [HH.text "1"]
       where
-        buttonGroup = one <<< HH.div [toClass "btn-group btn-group-sm btn-group-justified"]
-        button active action = one <<< HH.a [onClickDo action, toClass $ "btn btn-default" <> if active then " active" else ""]
+        buttonGroup = put <<<
+            HH.div [toClass "btn-group btn-group-sm btn-group-justified"]
+        button active action = put <<<
+            HH.a [onClickDo action, toClass $ "btn btn-default" <> if active then " active" else ""]
 
     songInfo (Status { time }) (Song { file, title, artist, album }) = HH.div_ <% do
-        one $ HH.img [toClass "img-responsive hidden-xs center-block", src $ "/image/" <> file]
-        one $ HH.a (catMaybes [albumsUrl <$> album]) <% do
-            one $ HH.h5 [toClass "text-center"] [HH.text title]
-            one $ HH.h6 [toClass "text-center"] [HH.text artist]
-            whenM (one <<< albumInfo) album
-        whenM (one <<< progress) time
+        put $ HH.img [toClass "img-responsive hidden-xs center-block", src $ "/image/" <> file]
+        put $ HH.a (catMaybes [albumsUrl <$> album]) <% do
+            put $ HH.h5 [toClass "text-center"] [HH.text title]
+            put $ HH.h6 [toClass "text-center"] [HH.text artist]
+            putMaybe albumInfo album
+        putMaybe progress time
       where
-        albumsUrl (Album { artist }) = href $ "#/music/" <> artistName artist
+        albumsUrl (Album a) = href $ "#/music/" <> artistName a.artist
         albumInfo (Album a) =
             HH.h6 [toClass "text-center"] <% do
-                one $ HH.text a.title
-                one $ HH.small_ [HH.text $ nbsp <> "(" <> trimDate a.date <> ")"]
+                put $ HH.text a.title
+                put $ HH.small_ [HH.text $ nbsp <> "(" <> trimDate a.date <> ")"]
 
         progress (Tuple elapsed total) =
             HH.div [toClass "progress"] $ singleton $
@@ -160,4 +160,3 @@ render state =
     child Artists = HH.slot' pathArtists CAR.Slot CAR.child
     child (Albums artist) = HH.slot' pathAlbums CAL.Slot $ CAL.child artist
     child Playlist = HH.slot' pathPlaylist CP.Slot CP.child
-

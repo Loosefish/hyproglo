@@ -79,7 +79,8 @@ fromWriter :: forall a w b. (w -> a) -> Writer w b -> a
 fromWriter outer = outer <<< execWriter <<< void
 infix 9 fromWriter as <%
 
-one = tell <<< singleton
-many = tell
+put = tell <<< singleton
+puts = tell
 
-whenM f m = maybe (pure unit) f m
+putMaybe f m = maybe (pure unit) (put <<< f) m
+putsMaybe f m = maybe (pure unit) (puts <<< f) m
