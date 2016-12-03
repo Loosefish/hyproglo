@@ -2,7 +2,9 @@ module Util where
 
 import Hpg.Prelude
 
-import Data.Array ((:))
+import Control.Monad.Writer (Writer, execWriter, tell)
+
+import Data.Array ((:), singleton)
 import Data.Char (fromCharCode)
 import Data.String as S
 
@@ -25,6 +27,8 @@ addProp _ element = element
 
 fa :: forall p i. String -> HTML p i
 fa name = H.span [toClass $ "fa fa-" <> name] []
+
+fa_ props name = H.span (props <> [toClass $ "fa fa-" <> name]) []
 
 
 nbsp :: String
@@ -68,3 +72,14 @@ styleProp = refine $ prop (propName "style") (Just $ attrName "style")
 
 empty :: forall p i. HTML p i
 empty = H.text ""
+
+
+-- | Pass the result a writer execution to an `outer` function.
+fromWriter :: forall a w b. (w -> a) -> Writer w b -> a
+fromWriter outer = outer <<< execWriter <<< void
+infix 9 fromWriter as <%
+
+one = tell <<< singleton
+many = tell
+
+whenM f m = maybe (pure unit) f m

@@ -13,7 +13,7 @@ do_server() {
 do_halogen() {
     cd halogen
     case $1 in
-        w)  pulp -w browserify --optimise --to ../server/app.js
+        w)  pulp --before clear -w browserify --optimise --to ../server/app.js
             ;;
         *)  pulp browserify --optimise --to ../server/app.js
             ;;

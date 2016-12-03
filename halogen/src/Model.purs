@@ -61,6 +61,12 @@ derive instance eqSong :: Eq Song
 songAlbum :: Song -> Maybe Album
 songAlbum (Song s) = s.album
 
+songArtist :: Song -> String
+songArtist (Song s) = s.artist
+
+songDisc :: Song -> Maybe String
+songDisc (Song s) = s.disc
+
 
 -- Status
 

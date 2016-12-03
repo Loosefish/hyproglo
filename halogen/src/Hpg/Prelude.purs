@@ -22,6 +22,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (log)
 
+import Data.Array (singleton)
 import Data.Either (Either(..))
 import Data.Foldable (sum, and, or, all, any)
 import Data.Functor.Coproduct (Coproduct(..))
@@ -29,7 +30,7 @@ import Data.List (List(..))
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), Replacement(..))
 import Data.Traversable (sequence)
-import Data.Tuple (Tuple(..), fst, snd)
+import Data.Tuple (Tuple(..), fst, snd, uncurry, curry)
 
 eqBy :: forall a b. (Eq b) => (a -> b) -> a -> a -> Boolean
 eqBy f = (\x y -> f x == f y)

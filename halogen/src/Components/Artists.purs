@@ -9,7 +9,6 @@ module Components.Artists
 import Hpg.Prelude
 
 import Data.Array as A
-import Data.Array ((:))
 import Data.String as S
 import Data.NonEmpty as N
 
@@ -18,7 +17,7 @@ import Halogen.HTML.Indexed as H
 
 import Model (Artist(..), AppUi, AppUpdate, AppChild)
 import Mpd (fetchAlbumArtists)
-import Util (viewLiA, toClass)
+import Util (viewLiA, toClass, (<%), one, many)
 
 
 data Query a = LoadArtists a
@@ -35,14 +34,14 @@ eval (LoadArtists next) = do
 
 
 render :: State -> HA.ComponentHTML Query
-render artists = outer $ header : map artistGroup artistsByLetter
+render artists =
+    H.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"] <% do
+        one $ H.h4 [toClass "page-header"] [H.text "Album Artists"]
+        many $ map artistGroup artistsByLetter
   where
-    outer = H.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"]
-    header = H.h4 [toClass "page-header"] [H.text "Album Artists"]
-    artistGroup group = H.span_ $
-        [ H.text $ letter $ N.head group
-        , H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
-        ]
+    artistGroup group = H.span_ <% do
+        one $ H.text $ letter $ N.head group
+        one $ H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
     artistLink (Artist { name }) = viewLiA ("#/music/" <> name) [H.text name]
     artistsByLetter = A.groupBy (eqBy letter) artists
     letter (Artist { name }) = S.toUpper $ S.take 1 name

@@ -15,7 +15,7 @@ import Components.Albums as CAL
 import Components.Artists as CAR
 import Components.Playlist as CP
 import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), artistName)
-import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
+import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp, (<%), one, whenM, many)
 import Mpd (queryMpd, fetchStatusSong)
 
 
@@ -75,11 +75,7 @@ eval (SetView view next) = do
     pure next
 
 eval (Update next) = do
-    both <- H.fromAff $ fetchStatusSong
-    let status = fst both
-    let song = snd both
-    -- status <- H.fromAff $ fetchStatus
-    -- song <- H.fromAff $ currentSong
+    (Tuple status song) <- H.fromAff $ fetchStatusSong
     H.modify (_ { status = status, song = song})
     query' pathAlbums CAL.Slot (H.action $ CAL.SetCurrentSong song)
     pure next
@@ -91,21 +87,16 @@ eval (SendCmd cmd next) = do
 
 render :: forall eff. State -> ParentHTML ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
 render state =
-    HH.div [toClass "container-fluid"] 
-    [ HH.div [toClass "row"]
-        [ HH.div [toClass "col-xs-12 col-sm-3 col-md-2 sidebar"] sidebar
-        , child state.view
-        ]
-    ]
+    HH.div [toClass "container-fluid"] <% do
+        one $ HH.div [toClass "row"] <% do
+            one $ HH.div [toClass "col-xs-12 col-sm-3 col-md-2 sidebar"] <% do
+                one $ HH.h4 [toClass "page-header"] [HH.text $ "HyProGlo" <> nbsp]
+                one $ HH.ul [toClass "nav nav-sidebar"] [musicLink, playlistLink state.status]
+                one $ HH.div_ $ catMaybes [songInfo <$> state.status <*> state.song, controls <$> state.status]
+            one $ child state.view
   where
-    sidebar =
-        [ HH.h4 [toClass "page-header"] [HH.text $ "HyProGlo" <> nbsp]
-        , HH.ul [toClass "nav nav-sidebar"] [musicLink, playlistLink state.status]
-        , HH.div_ $ catMaybes [songInfo <$> state.status <*> state.song, controls <$> state.status]
-        ]
-
     musicLink = navLink active "#/music" $ (fa "database fa-fw") : (HH.text $ nbsp <> "Music") : extra
-        where
+      where
         active = case state.view of
             Playlist -> false
             _ -> true
@@ -114,12 +105,11 @@ render state =
             _ -> []
 
     playlistLink status =
-        navLink active "#/playlist" $ catMaybes
-            [ Just $ fa "list fa-fw"
-            , Just $ HH.text $ nbsp <> "Playlist"
-            , playlistBadge <$> status
-            ]
-        where
+        navLink active "#/playlist" <% do
+            one $ fa "list fa-fw"
+            one $ HH.text $ nbsp <> "Playlist"
+            whenM (one <<< playlistBadge) status
+      where
         playlistBadge (Status { playlistLength }) =
             HH.span [toClass "badge pull-right"] [HH.text $ show $ playlistLength]
         active = case state.view of
@@ -129,50 +119,45 @@ render state =
     navLink active target content =
         HH.li (if active then [toClass "active"] else []) [HH.a [href target] content]
 
+    controls (Status { random, repeat, single, playState }) = HH.div_ <% do
+        buttonGroup <% do
+            case playState of
+                Playing -> button false (SendCmd "pause") [fa "pause"]
+                _ -> button false (SendCmd "play") [fa "play"]
+        buttonGroup <% do
+            button false (SendCmd "previous") [fa "fast-backward"]
+            button false (SendCmd "stop") [fa "stop"]
+            button false (SendCmd "next") [fa "fast-forward"]
+        buttonGroup  <% do
+            button random (SendCmd $ "random " <> if random then "0" else "1") [fa "random"]
+            button repeat (SendCmd $ "repeat " <> if repeat then "0" else "1") [fa "repeat"]
+            button single (SendCmd $ "single " <> if single then "0" else "1") [HH.text "1"]
+      where
+        buttonGroup = one <<< HH.div [toClass "btn-group btn-group-sm btn-group-justified"]
+        button active action = one <<< HH.a [onClickDo action, toClass $ "btn btn-default" <> if active then " active" else ""]
+
+    songInfo (Status { time }) (Song { file, title, artist, album }) = HH.div_ <% do
+        one $ HH.img [toClass "img-responsive hidden-xs center-block", src $ "/image/" <> file]
+        one $ HH.a (catMaybes [albumsUrl <$> album]) <% do
+            one $ HH.h5 [toClass "text-center"] [HH.text title]
+            one $ HH.h6 [toClass "text-center"] [HH.text artist]
+            whenM (one <<< albumInfo) album
+        whenM (one <<< progress) time
+      where
+        albumsUrl (Album { artist }) = href $ "#/music/" <> artistName artist
+        albumInfo (Album a) =
+            HH.h6 [toClass "text-center"] <% do
+                one $ HH.text a.title
+                one $ HH.small_ [HH.text $ nbsp <> "(" <> trimDate a.date <> ")"]
+
+        progress (Tuple elapsed total) =
+            HH.div [toClass "progress"] $ singleton $
+                HH.div [toClass "progress-bar", percent] $
+                    map HH.text [formatTime elapsed, nbsp <> "/" <> nbsp, formatTime total ]
+          where
+            percent = styleProp $ "width:" <> show ((elapsed * 100) / total) <> "%;"
+
     child Artists = HH.slot' pathArtists CAR.Slot CAR.child
     child (Albums artist) = HH.slot' pathAlbums CAL.Slot $ CAL.child artist
     child Playlist = HH.slot' pathPlaylist CP.Slot CP.child
 
-    controls (Status { random, repeat, single, playState }) = HH.div_
-        [ buttonGroup [playButton]
-        , buttonGroup
-            [ button' false (SendCmd "previous") [fa "fast-backward"]
-            , button' false (SendCmd "stop") [fa "stop"]
-            , button' false (SendCmd "next") [fa "fast-forward"]
-            ]
-        , buttonGroup 
-            [ button' random (SendCmd $ "random " <> if random then "0" else "1") [fa "random"]
-            , button' repeat (SendCmd $ "repeat " <> if repeat then "0" else "1") [fa "repeat"]
-            , button' single (SendCmd $ "single " <> if single then "0" else "1") [HH.text "1"]
-            ]
-        ]
-        where
-        buttonGroup = HH.div [toClass "btn-group btn-group-sm btn-group-justified"]
-        button active = HH.a [toClass $ "btn btn-default" <> if active then " active" else ""]
-        button' active action = HH.a [onClickDo action, toClass $ "btn btn-default" <> if active then " active" else ""]
-        playButton = case playState of
-            Playing -> button' false (SendCmd "pause") [fa "pause"]
-            _ -> button' false (SendCmd "play") [fa "play"]
-
-    songInfo (Status { time }) (Song { file, title, artist, album }) = HH.div_
-        [HH.img [toClass "img-responsive hidden-xs center-block", src $ "/image/" <> file]
-        , HH.a (catMaybes [albumsUrl <$> album]) $ catMaybes
-            [ Just $ HH.h5 [toClass "text-center"] [HH.text title]
-            , Just $ HH.h6 [toClass "text-center"] [HH.text artist]
-            , albumInfo <$> album
-            ]
-        , HH.div_ $ progress time
-        ]
-        where
-        albumsUrl (Album { artist }) = href $ "#/music/" <> artistName artist
-        albumInfo (Album a) =
-            HH.h6 [toClass "text-center"]
-                [HH.text a.title, HH.small_ [HH.text $ nbsp <> "(" <> trimDate a.date <> ")"]]
-
-        progress (Just (Tuple elapsed total)) = [outer $ inner label]
-            where
-            outer = HH.div [toClass "progress"] <<< singleton
-            inner = HH.div [toClass "progress-bar", percent]
-            percent = styleProp $ "width:" <> show ((elapsed * 100) / total) <> "%;"
-            label = map HH.text [formatTime elapsed, nbsp <> "/" <> nbsp, formatTime total ]
-        progress _ = []
