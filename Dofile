@@ -1,7 +1,9 @@
 #!/bin/sh
+set -e
 
 do_() {
     do_halogen
+    do_tags
 }
 
 
@@ -18,9 +20,16 @@ do_halogen() {
         *)  pulp browserify --optimise --to ../server/app.js
             ;;
     esac
+    cd ..
 }
 
-do_images() {
-    rm -rf server/image/*
-    zsh -c 'ls /home/henry/Medien/Musik/*/*.[pj][np]g | while read x; do ln -s "$x" "server/image/$(basename "$(dirname $x)")"; done'
+do_tags() {
+    psc-docs --format ctags halogen/src/**/*.purs > halogen/tags
+}
+
+do_ide() {
+    cd halogen
+    sleep 2 && echo '{"command":"load"}'|psc-ide-client &
+    psc-ide-server
+    cd ..
 }

@@ -3,6 +3,7 @@ module Components.Albums where
 import Hpg.Prelude
 
 import Data.Array as A
+import Data.Array ((:))
 import Data.String as S
 
 import DOM.HTML.Types (WINDOW)
@@ -15,7 +16,7 @@ import Halogen.HTML.Properties.Indexed (src, colSpan, id_)
 import Model (Artist, Album(..), Song(..), albumId, songAlbum, AppUi, AppUpdate, AppChild, artistName, songArtist, songDisc)
 import Mpd (sendCmd, sendCmds, fetchAlbums')
 import Mpd as M
-import Util (toClass, fa, clickable, nbsp, stripNum, formatTime, onClickDo, put, puts, (<%), putMaybe)
+import Util (toClass, fa, clickable, nbsp, stripNum, formatTime, onClickDo)
 
 foreign import scrollToId :: forall eff. String -> Eff (window :: WINDOW | eff) Unit
 
@@ -88,12 +89,12 @@ render { artist, albums, busy, currentSong } =
                     put $ H.span [clickable, onClickDo $ PlayAlbum album 0] <% albumTitle album
                     put $ H.text nbsp
                     put $ fa "plus-circle clickable"
-            put $ H.div [toClass "col-xs-12 col-sm-8"] $ [songTable]
-            putMaybe image $ A.head songs
+            put $ H.div [toClass "col-xs-12 col-sm-8"] [songTable]
+            maybePut image $ A.head songs
       where
         image (Song { file }) =
-            H.div [toClass "col-sm-4 col-xs-hidden"] <% do
-                put $ H.img [src $ "/image/" <> file, toClass "img-responsive center-block"]
+            H.div [toClass "col-sm-4 col-xs-hidden"] $ A.singleton $
+                H.img [src $ "/image/" <> file, toClass "img-responsive center-block"]
 
         songTable = H.table [toClass "table table-condensed table-hover"] <% do
             put $ H.tbody_ $ A.concat $ A.mapWithIndex songOrDisc songs

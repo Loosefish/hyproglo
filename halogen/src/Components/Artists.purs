@@ -14,11 +14,11 @@ import Data.NonEmpty as N
 
 import Halogen as HA
 import Halogen.HTML.Indexed as H
+import Halogen.HTML.Properties.Indexed (href)
 
 import Model (Artist(..), AppUi, AppUpdate, AppChild)
 import Mpd (fetchAlbumArtists)
-import Util (viewLiA, toClass, (<%), put, puts)
-
+import Util (toClass)
 
 data Query a = LoadArtists a
 type State = Array Artist
@@ -42,9 +42,12 @@ render artists =
     artistGroup group = H.span_ <% do
         put $ H.text $ letter $ N.head group
         put $ H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
-    artistLink (Artist { name }) = viewLiA ("#/music/" <> name) [H.text name]
+    artistLink (Artist { name }) =
+        H.li_ [H.a [href $ "#/music/" <> name] [H.text name]]
     artistsByLetter = A.groupBy (eqBy letter) artists
     letter (Artist { name }) = S.toUpper $ S.take 1 name
+
+
 
 
 -- Component

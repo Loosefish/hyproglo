@@ -15,7 +15,7 @@ import Components.Albums as CAL
 import Components.Artists as CAR
 import Components.Playlist as CP
 import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), artistName)
-import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp, (<%), put, putMaybe)
+import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
 import Mpd (queryMpd, fetchStatusSong)
 
 
@@ -96,8 +96,8 @@ render { status, song, view } =
                     musicLink
                     playlistLink
                 put $ HH.div_ <% do
-                    putMaybe id (songInfo <$> status <*> song)
-                    putMaybe controls status
+                    maybePut id (songInfo <$> status <*> song)
+                    maybePut controls status
             put $ child view
   where
     musicLink = navLink (view /= Playlist) "#/music" <% do
@@ -110,7 +110,7 @@ render { status, song, view } =
     playlistLink = navLink (view == Playlist) "#/playlist" <% do
         put $ fa "list fa-fw"
         put $ HH.text $ nbsp <> "Playlist"
-        putMaybe playlistBadge status
+        maybePut playlistBadge status
       where
         playlistBadge (Status s) = HH.span [toClass "badge pull-right"] [HH.text $ show $ s.playlistLength]
 
@@ -141,8 +141,8 @@ render { status, song, view } =
         put $ HH.a (catMaybes [albumsUrl <$> album]) <% do
             put $ HH.h5 [toClass "text-center"] [HH.text title]
             put $ HH.h6 [toClass "text-center"] [HH.text artist]
-            putMaybe albumInfo album
-        putMaybe progress time
+            maybePut albumInfo album
+        maybePut progress time
       where
         albumsUrl (Album a) = href $ "#/music/" <> artistName a.artist
         albumInfo (Album a) =

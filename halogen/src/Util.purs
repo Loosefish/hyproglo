@@ -2,41 +2,27 @@ module Util where
 
 import Hpg.Prelude
 
-import Control.Monad.Writer (Writer, execWriter, tell)
-
-import Data.Array ((:), singleton)
 import Data.Char (fromCharCode)
 import Data.String as S
 
 import Unsafe.Coerce (unsafeCoerce)
 
-import Halogen.HTML.Core (className, HTML(Element), Prop, prop, propName, attrName)
+import Halogen.HTML.Core (HTML, Prop, attrName, className, prop, propName)
 import Halogen.HTML.Events.Indexed as HE
 import Halogen.HTML.Indexed as H
-import Halogen.HTML.Properties.Indexed (classes, href, IProp(..), I)
+import Halogen.HTML.Properties.Indexed (I, IProp, classes)
 
 
 toClass :: forall r i. String -> IProp (class :: I | r) i
 toClass s = classes $ map className $ S.split (Pattern " ") s
 
 
-addProp :: forall r p i. IProp r i -> HTML p i -> HTML p i
-addProp (IProp p) (Element n t ps cs) = Element n t (p : ps) cs
-addProp _ element = element
-
-
 fa :: forall p i. String -> HTML p i
 fa name = H.span [toClass $ "fa fa-" <> name] []
-
-fa_ props name = H.span (props <> [toClass $ "fa fa-" <> name]) []
 
 
 nbsp :: String
 nbsp = S.singleton $ fromCharCode 160
-
-
-viewLiA :: forall a q. String -> Array (HTML a (q Unit)) -> HTML a (q Unit)
-viewLiA h c = H.li_ [H.a [href h] c]
 
 
 stripNum :: Maybe String -> Maybe String
@@ -68,19 +54,3 @@ styleProp = refine $ prop (propName "style") (Just $ attrName "style")
   where
     refine :: forall a r' i'. (a -> Prop i') -> a -> IProp r' i'
     refine = unsafeCoerce
-
-
-empty :: forall p i. HTML p i
-empty = H.text ""
-
-
--- | Pass the result a writer execution to an `outer` function.
-fromWriter :: forall a w b. (w -> a) -> Writer w b -> a
-fromWriter outer = outer <<< execWriter <<< void
-infix 9 fromWriter as <%
-
-put = tell <<< singleton
-puts = tell
-
-putMaybe f m = maybe (pure unit) (put <<< f) m
-putsMaybe f m = maybe (pure unit) (puts <<< f) m
