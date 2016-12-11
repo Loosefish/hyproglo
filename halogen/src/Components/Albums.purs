@@ -3,8 +3,6 @@ module Components.Albums where
 import Hpg.Prelude
 
 import Data.Array as A
-import Data.Array ((:))
-import Data.String as S
 
 import DOM.HTML.Types (WINDOW)
 
@@ -16,18 +14,22 @@ import Halogen.HTML.Properties.Indexed (src, colSpan, id_)
 import Model (Artist, Album(..), Song(..), albumId, songAlbum, AppUi, AppUpdate, AppChild, artistName, songArtist, songDisc)
 import Mpd (sendCmd, sendCmds, fetchAlbums')
 import Mpd as M
-import Util (toClass, fa, clickable, nbsp, stripNum, formatTime, onClickDo)
+import Util (toClass, fa, clickable, nbsp, stripNum, formatTime, onClickDo, trimDate)
 
 foreign import scrollToId :: forall eff. String -> Eff (window :: WINDOW | eff) Unit
 
 
 data Query a
-    = LoadAlbums a
-    | Focus Album a
-    | PlayAlbum Album Int a
+    = AddAlbum Album a
+    | AddArtist a
     | AddSong Song a
+    | Focus Album a
+    | LoadAlbums a
+    | PlayAlbum Album Int a
+    | PlayArtist a
     | SetArtist Artist a
     | SetCurrentSong (Maybe Song) a
+
 
 type State =
     { artist :: Artist
@@ -46,8 +48,19 @@ eval (LoadAlbums next) = do
 eval (Focus album next) = do
     HA.fromEff $ scrollToId $ albumId album
     pure next
+eval (AddAlbum album next) = do
+    HA.fromAff $ sendCmd $ M.AddAlbum album
+    pure next
+eval (AddArtist  next) = do
+    addAlbums <- map (M.AddAlbum <<< fst) <$> HA.gets _.albums
+    HA.fromAff $ sendCmds addAlbums
+    pure next
 eval (PlayAlbum album i next) = do
     HA.fromAff $ sendCmds [M.Clear, M.AddAlbum album, M.Play $ Just i]
+    pure next
+eval (PlayArtist next) = do
+    addAlbums <- map (M.AddAlbum <<< fst) <$> HA.gets _.albums
+    HA.fromAff $ sendCmds $ [M.Clear] <> addAlbums <> [M.Play $ Just 0]
     pure next
 eval (AddSong song next) = do
     HA.fromAff $ sendCmd $ M.AddSong song
@@ -66,8 +79,10 @@ render { artist, albums, busy, currentSong } =
         when (A.length albums > 1) (puts [links, H.hr_])
         puts $ map albumRow albums
   where
-    header = H.h4 [toClass "page-header clickable"] <% do 
-        put $ H.text $ artistName artist
+    header = H.h4 [toClass "page-header"] <% do 
+        put $ H.span [clickable, onClickDo PlayArtist] [H.text $ artistName artist]
+        put $ H.text nbsp
+        put $ H.span [toClass "fa fa-plus-circle clickable", onClickDo AddArtist] []
         when busy $ puts [H.text nbsp, fa "circle-o-notch fa-spin"]
 
     links = H.ul [toClass $ "nav nav-pills"] $ map albumLink albums
@@ -80,7 +95,7 @@ render { artist, albums, busy, currentSong } =
 
     albumTitle (Album { title, date }) = do
         put $ H.text $ title <> nbsp
-        put $ H.small_ $ map H.text ["(", S.take 4 date, ")"]
+        put $ H.small_ $ map H.text ["(", trimDate date, ")"]
 
     albumRow (Tuple album songs) =
         H.div [id_ $ albumId album,toClass "row"] <% do
@@ -88,7 +103,7 @@ render { artist, albums, busy, currentSong } =
                 put $ H.h5_ <% do
                     put $ H.span [clickable, onClickDo $ PlayAlbum album 0] <% albumTitle album
                     put $ H.text nbsp
-                    put $ fa "plus-circle clickable"
+                    put $ H.span [toClass "fa fa-plus-circle clickable", onClickDo $ AddAlbum album] []
             put $ H.div [toClass "col-xs-12 col-sm-8"] [songTable]
             maybePut image $ A.head songs
       where
@@ -142,12 +157,12 @@ ui = HA.lifecycleComponent
     }
 
 
-child :: Artist -> AppChild State Query
-child artist = \_ -> { component: ui, initialState: init }
+child :: Artist -> Maybe Song -> AppChild State Query
+child artist currentSong = \_ -> { component: ui, initialState: init }
   where
     init = 
         { artist: artist
         , albums: []
         , busy: false
-        , currentSong: Nothing
+        , currentSong: currentSong
         }

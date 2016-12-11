@@ -148,7 +148,7 @@ render { status, song, view } =
         albumInfo (Album a) =
             HH.h6 [toClass "text-center"] <% do
                 put $ HH.text a.title
-                put $ HH.small_ [HH.text $ nbsp <> "(" <> trimDate a.date <> ")"]
+                put $ HH.small_ [HH.text $ " (" <> trimDate a.date <> ")"]
 
         progress (Tuple elapsed total) =
             HH.div [toClass "progress"] $ singleton $
@@ -158,5 +158,5 @@ render { status, song, view } =
             percent = styleProp $ "width:" <> show ((elapsed * 100) / total) <> "%;"
 
     child Artists = HH.slot' pathArtists CAR.Slot CAR.child
-    child (Albums artist) = HH.slot' pathAlbums CAL.Slot $ CAL.child artist
+    child (Albums artist) = HH.slot' pathAlbums CAL.Slot $ CAL.child artist song
     child Playlist = HH.slot' pathPlaylist CP.Slot CP.child

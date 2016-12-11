@@ -225,3 +225,7 @@ fetchStatusSong = do
     let status = parseOne pairs
     let song = parseOne pairs
     pure $ Tuple status song
+
+
+fetchPlaylistSongs :: forall eff. Aff (ajax :: AJAX | eff) (Array Song)
+fetchPlaylistSongs = fetch "playlistinfo"
