@@ -165,7 +165,13 @@ fetchSongs (Album { artist: Artist artist, date: date, title: title }) =
 
 -- Control
 
-data MpdCmd = Play (Maybe Int) | Clear | AddSong Song | AddAlbum Album | Delete Int
+data MpdCmd
+    = Play (Maybe Int)
+    | Clear
+    | AddSong Song
+    | AddAlbum Album
+    | Delete Int
+    | Move Int Int
 
 sendCmds :: Array MpdCmd -> MpdEffect
 sendCmds cmds = queryMpd $ S.joinWith "\n" $ map raw cmds
@@ -174,6 +180,7 @@ sendCmds cmds = queryMpd $ S.joinWith "\n" $ map raw cmds
       Play i -> "play " <> maybe "" show i
       Delete i -> "delete " <> show i
       Clear -> "clear"
+      Move from to -> "move " <> show from <> " " <> show to
       AddSong (Song { file }) -> "add " <> quote file
       AddAlbum (Album { artist, date, title }) ->
         S.joinWith " "

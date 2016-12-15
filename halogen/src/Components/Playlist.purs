@@ -14,13 +14,17 @@ import Util (toClass, clickable, fa, formatTime, onClickDo)
 import Mpd as M
 
 
-type State = { playlist :: Array Song, currentSong :: Maybe Int }
+type State =
+    { playlist :: Array Song
+    , currentSong :: Maybe Int
+    }
 
 
 data Query a
     = GetPlaylist a
     | Play Int a
     | Delete Int a
+    | Move Int Int a
     | Clear a
     | SetCurrentSong (Maybe Int) a
 data Slot = Slot
@@ -42,21 +46,29 @@ eval (GetPlaylist next) = do
     playlist <- HA.fromAff M.fetchPlaylistSongs
     HA.modify (_ { playlist = playlist })
     pure next
+
 eval (Play i next) = do
     HA.fromAff $ M.sendCmd $ M.Play $ Just i
     HA.modify (_ { currentSong = Just i })
     pure next
+
 eval (Delete i next) = do
     HA.fromAff $ M.sendCmd $ M.Delete i
     playlist <- HA.gets _.playlist
     HA.modify (_ { playlist = fromMaybe playlist $ A.deleteAt i playlist})
     pure next
+
 eval (Clear next) = do
     HA.fromAff $ M.sendCmd M.Clear
     HA.modify (_ { playlist = [] })
     pure next
+
 eval (SetCurrentSong currentSong next) = do
     HA.modify (_ { currentSong = currentSong })
+    pure next
+
+eval (Move from to next) = do
+    HA.fromAff $ M.sendCmd $ M.Move from to
     pure next
 
 
@@ -84,7 +96,10 @@ render { playlist, currentSong } =
             Just (Album a) -> [H.text a.title]
             _ -> []
         put $ H.td_ [H.text $ formatTime s.time]
-        put $ H.td_ [H.span [clickable, onClickDo $ Delete i] [fa "minus-circle fa-lg"]]
+        put $ H.td_ <% do 
+            put $ H.span [clickable, onClickDo $ Move i (i - 1)] [fa "arrow-circle-up fa-lg"]
+            put $ H.span [clickable, onClickDo $ Move i (i + 1)] [fa "arrow-circle-down fa-lg"]
+            put $ H.span [clickable, onClickDo $ Delete i] [fa "minus-circle fa-lg"]
 
 
 child :: forall eff. Maybe Int -> Unit -> { component :: Component State Query (Aff (AppEffects eff)), initialState :: State }
