@@ -6,12 +6,14 @@ import Halogen (HalogenEffects, Component, ComponentDSL)
 import Network.HTTP.Affjax (AJAX)
 import DOM.HTML.Types (WINDOW)
 import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Eff.Random (RANDOM)
 
 
 type AppEffects eff = HalogenEffects
     ( ajax :: AJAX
     , console :: CONSOLE
     , window :: WINDOW
+    , random :: RANDOM
     | eff)
 
 type AppChild s q =

@@ -135,6 +135,11 @@ fetchAlbums (Artist { name }) =
     fetch $ "list Album AlbumArtist " <> quote name <> " group AlbumArtist group Date"
 
 
+fetchAllAlbums :: forall eff. Aff (ajax :: AJAX | eff) (Array Album)
+fetchAllAlbums =
+    fetch $ "list Album group AlbumArtist group Date"
+
+
 fetchAlbums' :: forall eff. Artist -> Aff (ajax :: AJAX | eff) (Array (Tuple Album (Array Song)))
 fetchAlbums' (Artist { name }) = do
     songs <- fetch $ "find AlbumArtist " <> quote name
