@@ -15,7 +15,7 @@ do_server() {
 do_halogen() {
     cd halogen
     case $1 in
-        w)  pulp --before clear -w browserify --optimise --to ../server/app.js
+        w)  pulp --before clear -w browserify -O --to ../server/app.js
             ;;
         *)  pulp browserify --optimise --to ../server/app.js
             ;;
@@ -32,4 +32,12 @@ do_ide() {
     sleep 2 && echo '{"command":"load"}'|psc-ide-client &
     psc-ide-server
     cd ..
+}
+
+do_min() {
+    do_halogen
+    du -h server/app.js
+    closure-compiler server/app.js > app.min.js
+    mv app.min.js server/app.js
+    du -h server/app.js
 }

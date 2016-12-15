@@ -47,29 +47,37 @@ eval (LoadAlbums next) = do
     withSongs <- HA.fromAff <$> fetchAlbums' =<< HA.gets _.artist
     HA.modify (_ { albums = withSongs, busy = false })
     pure next
+
 eval (Focus album next) = do
     HA.fromEff $ scrollToId $ albumId album
     pure next
+
 eval (AddAlbum album next) = do
     HA.fromAff $ sendCmd $ M.AddAlbum album
     pure next
+
 eval (AddArtist  next) = do
     addAlbums <- map (M.AddAlbum <<< fst) <$> HA.gets _.albums
     HA.fromAff $ sendCmds addAlbums
     pure next
+
 eval (PlayAlbum album i next) = do
     HA.fromAff $ sendCmds [M.Clear, M.AddAlbum album, M.Play $ Just i]
     pure next
+
 eval (PlayArtist next) = do
     addAlbums <- map (M.AddAlbum <<< fst) <$> HA.gets _.albums
     HA.fromAff $ sendCmds $ [M.Clear] <> addAlbums <> [M.Play $ Just 0]
     pure next
+
 eval (AddSong song next) = do
     HA.fromAff $ sendCmd $ M.AddSong song
     pure next
+
 eval (SetArtist artist focus next) = do
     HA.modify (_ { artist = artist, albums = [], focus = focus })
     eval (LoadAlbums next)
+
 eval (SetCurrentSong song next) =
     HA.modify (_ {currentSong = song}) $> next
 

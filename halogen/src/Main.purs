@@ -12,23 +12,17 @@ import Model (AppEffects)
 import Router (routeSignal)
 import Components.App (ui, Query(..), init)
 
-{--
-TODO:
-- Focus album on now playing link
-- Move playlist entries
-- Peeking at child events for smarter updates
---}
-
 
 main :: Eff (AppEffects ()) Unit
 main = runHalogenAff do
     body <- awaitBody
     driver <- runUI ui (parentState init) body
     forkAff $ routeSignal driver
-    setInterval 1000 $ driver (left $ action Update)
+    driver (left $ action Update)
+    repeat 1000 $ driver (left $ action Update)
 
 
-setInterval :: forall e a. Int -> Aff e a -> Aff e Unit
-setInterval ms a = later' ms $ do
+repeat :: forall e a. Int -> Aff e a -> Aff e Unit
+repeat ms a = later' ms $ do
   a
-  setInterval ms a
+  repeat ms a

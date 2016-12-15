@@ -63,7 +63,7 @@ init =
 
 
 ui :: forall eff. Component (State' (Aff (AppEffects eff))) Query' (Aff (AppEffects eff))
-ui = HA.parentComponent { render, eval, peek: Nothing }
+ui = HA.parentComponent { render, eval, peek: Just peek }
 
 
 eval :: forall eff. Query ~> ParentDSL State ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
@@ -150,7 +150,6 @@ render { status, song, view } =
         maybePut progress time
       where
         albumsUrl (Album a) = href $ S.joinWith "/" ["#", "music", artistName a.artist, a.date, a.title]
-        {-- albumsUrl (Album a) = href $ "#/music/" <> artistName a.artist --}
         albumInfo (Album a) =
             H.h6 [toClass "text-center"] <% do
                 put $ H.text a.title
@@ -166,3 +165,19 @@ render { status, song, view } =
     child Artists = H.slot' pathArtists CAR.Slot CAR.child
     child (Albums artist album) = H.slot' pathAlbums CAL.Slot $ CAL.child artist album song
     child Playlist = H.slot' pathPlaylist CP.Slot $ CP.child $ statusPlaylistSong =<< status
+
+
+-- | Watch child queries to update on interesting events
+peek (HA.ChildF _ q) = case q of
+    Coproduct (Right (Coproduct (Left q'))) -> peekAlbums q'
+    Coproduct (Right (Coproduct (Right q'))) -> peekPlaylist q'
+    Coproduct (Left _) -> pure unit  -- artists
+  where
+    peekAlbums (CAL.PlayAlbum _ _ _) = eval $ Update unit
+    peekAlbums (CAL.PlayArtist _) = eval $ Update unit
+    peekAlbums _ = pure unit
+
+    peekPlaylist (CP.Play _ _) = eval $ Update unit
+    peekPlaylist (CP.Delete _ _) = eval $ Update unit
+    peekPlaylist (CP.Clear _) = eval $ Update unit
+    peekPlaylist _ = pure unit

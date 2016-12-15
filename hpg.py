@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from socket import socket, AF_UNIX
 import sys
 import os
@@ -9,6 +8,7 @@ from bottle import route, run, static_file, request
 
 
 SOCK_ADDR = "/home/henry/.config/mpd/socket"
+SERVER_ROOT = "/home/henry/Entwicklung/HyProGlo-purescript/server"
 
 
 def _mpd(query, sock_addr=SOCK_ADDR):
@@ -29,7 +29,7 @@ def _mpd(query, sock_addr=SOCK_ADDR):
 
 @route('/')
 def home():
-    return static_file('index.html', root='./server')
+    return static_file('index.html', root=SERVER_ROOT)
 
 
 @route('/mpd', method='POST')
@@ -73,7 +73,7 @@ def image(path):
 
 @route('/<path:path>')
 def static(path):
-    return static_file(path, root='./server')
+    return static_file(path, root=SERVER_ROOT)
 
 
-run(port=8888)
+run(host='0.0.0.0', port=5000, server='auto')
