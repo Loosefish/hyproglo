@@ -165,13 +165,14 @@ fetchSongs (Album { artist: Artist artist, date: date, title: title }) =
 
 -- Control
 
-data MpdCmd = Play (Maybe Int) | Clear | AddSong Song | AddAlbum Album
+data MpdCmd = Play (Maybe Int) | Clear | AddSong Song | AddAlbum Album | Delete Int
 
 sendCmds :: Array MpdCmd -> MpdEffect
 sendCmds cmds = queryMpd $ S.joinWith "\n" $ map raw cmds
   where
     raw cmd = case cmd of
       Play i -> "play " <> maybe "" show i
+      Delete i -> "delete " <> show i
       Clear -> "clear"
       AddSong (Song { file }) -> "add " <> quote file
       AddAlbum (Album { artist, date, title }) ->
@@ -194,9 +195,20 @@ instance fromMpdStatus :: FromMpd Status where
         random <- toBoolean <$> lookup "random" pairs
         single <- toBoolean <$> lookup "single" pairs
         playState <- parseOne pairs
+        playlist <- fromString =<< lookup "playlist" pairs
         playlistLength <- fromString =<< lookup "playlistlength" pairs
+        let playlistSong = fromString =<< lookup "song" pairs
         let time = parseTime =<< lookup "time" pairs
-        pure $ Status { repeat, random, single, playState, time, playlistLength }
+        pure $ Status
+            { playState
+            , playlist
+            , playlistLength
+            , playlistSong
+            , random
+            , repeat
+            , single
+            , time
+            }
       where
         parseTime t = case (map fromString $ S.split (S.Pattern ":") t) of
             [Just elapsed, Just total] -> Just $ Tuple elapsed total

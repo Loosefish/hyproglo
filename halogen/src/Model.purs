@@ -71,13 +71,21 @@ songDisc (Song s) = s.disc
 -- Status
 
 newtype Status = Status
-    { repeat :: Boolean
-    , random :: Boolean
-    , single :: Boolean
-    , playState :: PlayState
-    , time :: Maybe (Tuple Int Int)
+    { playState :: PlayState
+    , playlist :: Int
     , playlistLength :: Int
+    , playlistSong :: Maybe Int
+    , random :: Boolean
+    , repeat :: Boolean
+    , single :: Boolean
+    , time :: Maybe (Tuple Int Int)
     }
+
+statusPlaylist :: Status -> Int
+statusPlaylist (Status s) = s.playlist
+
+statusPlaylistSong :: Status -> Maybe Int
+statusPlaylistSong (Status s) = s.playlistSong
 
 data PlayState = Playing | Stopped | Paused
 derive instance eqPlayState :: Eq PlayState
