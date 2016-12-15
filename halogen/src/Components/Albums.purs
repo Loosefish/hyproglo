@@ -9,9 +9,9 @@ import DOM.HTML.Types (WINDOW)
 import Halogen (ComponentHTML)
 import Halogen as HA
 import Halogen.HTML.Indexed as H
-import Halogen.HTML.Properties.Indexed (src, colSpan, id_)
+import Halogen.HTML.Properties.Indexed (src, colSpan, id_, ref)
 
-import Model (Artist, Album(..), Song(..), albumId, songAlbum, AppUi, AppUpdate, AppChild, artistName, songArtist, songDisc)
+import Model (Artist, Album(..), Song(..), albumId, songAlbum, AppUpdate, AppChild, artistName, songArtist, songDisc)
 import Mpd (sendCmd, sendCmds, fetchAlbums')
 import Mpd as M
 import Util (toClass, fa, clickable, nbsp, stripNum, formatTime, onClickDo, trimDate)
@@ -27,8 +27,9 @@ data Query a
     | LoadAlbums a
     | PlayAlbum Album Int a
     | PlayArtist a
-    | SetArtist Artist a
+    | SetArtist Artist (Maybe Album) a
     | SetCurrentSong (Maybe Song) a
+    | Loaded Album a
 
 
 type State =
@@ -36,6 +37,7 @@ type State =
     , albums :: Array (Tuple Album (Array Song))
     , busy :: Boolean
     , currentSong :: Maybe Song
+    , focus :: Maybe Album
     }
 
 
@@ -65,11 +67,18 @@ eval (PlayArtist next) = do
 eval (AddSong song next) = do
     HA.fromAff $ sendCmd $ M.AddSong song
     pure next
-eval (SetArtist artist next) = do
-    HA.modify (_ {artist = artist})
+eval (SetArtist artist focus next) = do
+    HA.modify (_ { artist = artist, albums = [], focus = focus })
     eval (LoadAlbums next)
 eval (SetCurrentSong song next) =
     HA.modify (_ {currentSong = song}) $> next
+
+eval (Loaded album next) = do
+    focus <- HA.gets _.focus
+    when (focus == Just album) do
+        HA.modify (_ { focus = Nothing })
+        HA.fromEff $ scrollToId $ albumId album
+    pure next
 
 
 render :: State -> ComponentHTML Query
@@ -98,7 +107,7 @@ render { artist, albums, busy, currentSong } =
         put $ H.small_ $ map H.text ["(", trimDate date, ")"]
 
     albumRow (Tuple album songs) =
-        H.div [id_ $ albumId album,toClass "row"] <% do
+        H.div [ref \_ -> HA.action $ Loaded album, id_ $ albumId album, toClass "row"] <% do
             put $ H.div [toClass "col-xs-12"] <% do
                 put $ H.h5_ <% do
                     put $ H.span [clickable, onClickDo $ PlayAlbum album 0] <% albumTitle album
@@ -148,21 +157,19 @@ derive instance eqSlot :: Eq Slot
 derive instance ordSlot :: Ord Slot
 
 
-ui :: AppUi State Query
-ui = HA.lifecycleComponent
-    { render
-    , eval
-    , initializer: Just $ HA.action LoadAlbums
-    , finalizer: Nothing
-    }
-
-
-child :: Artist -> Maybe Song -> AppChild State Query
-child artist currentSong = \_ -> { component: ui, initialState: init }
+child :: Artist -> Maybe Album -> Maybe Song -> AppChild State Query
+child artist focus currentSong = \_ -> { component: ui, initialState: init }
   where
+    ui = HA.lifecycleComponent
+        { render
+        , eval
+        , initializer: Just $ HA.action LoadAlbums
+        , finalizer: Nothing
+        }
     init = 
         { artist: artist
         , albums: []
         , busy: false
         , currentSong: currentSong
+        , focus: focus
         }

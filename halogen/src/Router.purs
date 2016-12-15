@@ -14,16 +14,20 @@ import Routing (matchesAff)
 import Routing.Match (Match)
 import Routing.Match.Class (lit, str)
 
-import Model (Artist(..))
+import Model (Artist(..), Album(..))
 import Components.App (View(..), Query', Query(..))
 
 
 routing :: Match View
 routing = 
-    (\name -> Albums (Artist { name })) <$> (lit "" *> lit "music" *> str)
+    view <$> (lit "" *> lit "music" *> str) <*> str <*> str
+    <|> (\name -> Albums (Artist { name }) Nothing) <$> (lit "" *> lit "music" *> str)
     <|> Artists <$ (lit "" *> lit "music")
     <|> Playlist <$ (lit "" *> lit "playlist")
     <|> pure Artists
+  where
+    view name date title = let artist = Artist { name } in
+        Albums artist $ Just $ Album { artist, date, title }
 
 
 type Effects e = (dom :: DOM, avar :: AVAR, err :: EXCEPTION | e)

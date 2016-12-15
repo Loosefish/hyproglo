@@ -12,6 +12,13 @@ import Model (AppEffects)
 import Router (routeSignal)
 import Components.App (ui, Query(..), init)
 
+{--
+TODO:
+- Focus album on now playing link
+- Move playlist entries
+- Peeking at child events for smarter updates
+--}
+
 
 main :: Eff (AppEffects ()) Unit
 main = runHalogenAff do

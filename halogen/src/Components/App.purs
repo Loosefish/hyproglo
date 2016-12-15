@@ -3,6 +3,7 @@ module Components.App where
 import Hpg.Prelude
 
 import Data.Array (catMaybes, singleton)
+import Data.String as S
 
 import Halogen as HA
 import Halogen (Component, ChildF, ParentDSL, ParentHTML, ParentState)
@@ -25,7 +26,7 @@ type State =
     , status :: Maybe Status
     }
 
-data View = Artists | Albums Artist | Playlist
+data View = Artists | Albums Artist (Maybe Album) | Playlist
 derive instance eqView :: Eq View
 data Query a
     = SetView View a
@@ -66,9 +67,9 @@ ui = HA.parentComponent { render, eval, peek: Nothing }
 
 
 eval :: forall eff. Query ~> ParentDSL State ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
-eval (SetView (Albums artist) next) = do
-    query' pathAlbums CAL.Slot (HA.action $ CAL.SetArtist artist)
-    HA.modify (_ { view = Albums artist })
+eval (SetView (Albums artist album) next) = do
+    query' pathAlbums CAL.Slot (HA.action $ CAL.SetArtist artist album)
+    HA.modify (_ { view = Albums artist album })
     pure next
 
 eval (SetView view next) = do
@@ -108,7 +109,7 @@ render { status, song, view } =
         put $ fa "database fa-fw"
         put $ (H.text $ nbsp <> "Music")
         case view of
-            Albums (Artist { name }) -> put $ H.text $ nbsp <> "/" <> nbsp <> name
+            Albums (Artist { name }) _ -> put $ H.text $ nbsp <> "/" <> nbsp <> name
             _ -> pure unit
 
     playlistLink = navLink (view == Playlist) "#/playlist" <% do
@@ -148,7 +149,8 @@ render { status, song, view } =
             maybePut albumInfo album
         maybePut progress time
       where
-        albumsUrl (Album a) = href $ "#/music/" <> artistName a.artist
+        albumsUrl (Album a) = href $ S.joinWith "/" ["#", "music", artistName a.artist, a.date, a.title]
+        {-- albumsUrl (Album a) = href $ "#/music/" <> artistName a.artist --}
         albumInfo (Album a) =
             H.h6 [toClass "text-center"] <% do
                 put $ H.text a.title
@@ -162,5 +164,5 @@ render { status, song, view } =
             percent = styleProp $ "width:" <> show ((elapsed * 100) / total) <> "%;"
 
     child Artists = H.slot' pathArtists CAR.Slot CAR.child
-    child (Albums artist) = H.slot' pathAlbums CAL.Slot $ CAL.child artist song
+    child (Albums artist album) = H.slot' pathAlbums CAL.Slot $ CAL.child artist album song
     child Playlist = H.slot' pathPlaylist CP.Slot $ CP.child $ statusPlaylistSong =<< status
