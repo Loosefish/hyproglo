@@ -5,6 +5,8 @@ import Hpg.Prelude
 import Data.Array (catMaybes, singleton)
 import Data.String as S
 
+import DOM.HTML.Types (WINDOW)
+
 import Halogen as HA
 import Halogen (Component, ChildF, ParentDSL, ParentHTML, ParentState)
 import Halogen.Component (query')
@@ -19,6 +21,7 @@ import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status
 import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
 import Mpd (queryMpd, fetchStatusSong)
 
+foreign import setTitle :: forall eff. String -> Eff (window :: WINDOW | eff) Unit
 
 type State =
     { view :: View
@@ -78,13 +81,24 @@ eval (SetView view next) = do
 
 eval (Update next) = do
     (Tuple status song) <- HA.fromAff $ fetchStatusSong
+    -- Update playlist if changed
     oldStatus <- HA.gets _.status
     when (eqBy (map statusPlaylist) oldStatus status)
         (void $ query' pathPlaylist CP.Slot $ HA.action CP.GetPlaylist)
+    -- Update title
+    HA.fromEff $ setTitle $ docTitle song status
+    -- Push new state to child components
     query' pathAlbums CAL.Slot (HA.action $ CAL.SetCurrentSong song)
     query' pathPlaylist CP.Slot (HA.action $ CP.SetCurrentSong $ statusPlaylistSong =<< status)
+    -- Update local state
     HA.modify (_ { status = status, song = song})
     pure next
+  where
+    docTitle (Just (Song { artist, title })) (Just (Status { playState })) =
+        if playState == Stopped
+            then "HyProGlo"
+            else S.joinWith " - " [title, artist, "HyProGlo"]
+    docTitle _ _ = "HyProGlo"
 
 eval (SendCmd cmd next) = do
     HA.fromAff $ queryMpd cmd
@@ -171,8 +185,11 @@ render { status, song, view } =
 peek (HA.ChildF _ q) = case q of
     Coproduct (Right (Coproduct (Left q'))) -> peekAlbums q'
     Coproduct (Right (Coproduct (Right q'))) -> peekPlaylist q'
-    Coproduct (Left _) -> pure unit  -- artists
+    Coproduct (Left q') -> peekArtists q'
   where
+    peekArtists (CAR.PlayRandomAlbum _) = eval $ Update unit 
+    peekArtists _ = pure unit
+
     peekAlbums (CAL.PlayAlbum _ _ _) = eval $ Update unit
     peekAlbums (CAL.PlayArtist _) = eval $ Update unit
     peekAlbums _ = pure unit
