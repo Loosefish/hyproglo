@@ -89,6 +89,9 @@ statusPlaylist (Status s) = s.playlist
 statusPlaylistSong :: Status -> Maybe Int
 statusPlaylistSong (Status s) = s.playlistSong
 
+statusPlayState :: Status -> PlayState
+statusPlayState (Status s) = s.playState
+
 data PlayState = Playing | Stopped | Paused
 derive instance eqPlayState :: Eq PlayState
 -- volume: -1

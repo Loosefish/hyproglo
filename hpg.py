@@ -76,4 +76,4 @@ def static(path):
     return static_file(path, root=SERVER_ROOT)
 
 
-run(host='0.0.0.0', port=5000, server='auto')
+run(host='0.0.0.0', port=5000, server='cherrypy')

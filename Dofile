@@ -41,3 +41,10 @@ do_min() {
     mv app.min.js server/app.js
     du -h server/app.js
 }
+
+do_dev() {
+    systemctl --user stop hpg
+    tmux new-window -n dev dostuff halogen w
+    tmux split-window dostuff server
+    tmux split-window dostuff ide
+}

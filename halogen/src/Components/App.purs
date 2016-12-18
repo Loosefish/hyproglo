@@ -33,7 +33,8 @@ data View = Artists | Albums Artist (Maybe Album) | Playlist
 derive instance eqView :: Eq View
 data Query a
     = SetView View a
-    | Update a
+    | GetUpdate a
+    | Update (Maybe Status) (Maybe Song) a
     | SendCmd String a
 data Flag = Random | Repeat | Single
 
@@ -79,8 +80,11 @@ eval (SetView view next) = do
     HA.modify (_ { view = view})
     pure next
 
-eval (Update next) = do
+eval (GetUpdate next) = do
     (Tuple status song) <- HA.fromAff $ fetchStatusSong
+    eval $ Update status song next
+
+eval (Update status song next) = do
     -- Update playlist if changed
     oldStatus <- HA.gets _.status
     when (eqBy (map statusPlaylist) oldStatus status)
@@ -102,7 +106,7 @@ eval (Update next) = do
 
 eval (SendCmd cmd next) = do
     HA.fromAff $ queryMpd cmd
-    eval (Update next)
+    eval (GetUpdate next)
 
 
 render :: forall eff. State -> ParentHTML ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
@@ -187,14 +191,14 @@ peek (HA.ChildF _ q) = case q of
     Coproduct (Right (Coproduct (Right q'))) -> peekPlaylist q'
     Coproduct (Left q') -> peekArtists q'
   where
-    peekArtists (CAR.PlayRandomAlbum _) = eval $ Update unit 
+    peekArtists (CAR.PlayRandomAlbum _) = eval $ GetUpdate unit 
     peekArtists _ = pure unit
 
-    peekAlbums (CAL.PlayAlbum _ _ _) = eval $ Update unit
-    peekAlbums (CAL.PlayArtist _) = eval $ Update unit
+    peekAlbums (CAL.PlayAlbum _ _ _) = eval $ GetUpdate unit
+    peekAlbums (CAL.PlayArtist _) = eval $ GetUpdate unit
     peekAlbums _ = pure unit
 
-    peekPlaylist (CP.Play _ _) = eval $ Update unit
-    peekPlaylist (CP.Delete _ _) = eval $ Update unit
-    peekPlaylist (CP.Clear _) = eval $ Update unit
+    peekPlaylist (CP.Play _ _) = eval $ GetUpdate unit
+    peekPlaylist (CP.Delete _ _) = eval $ GetUpdate unit
+    peekPlaylist (CP.Clear _) = eval $ GetUpdate unit
     peekPlaylist _ = pure unit

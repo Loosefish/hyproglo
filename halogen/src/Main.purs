@@ -8,9 +8,10 @@ import Data.Functor.Coproduct (left)
 import Halogen (parentState, runUI, action)
 import Halogen.Util (awaitBody, runHalogenAff)
 
-import Model (AppEffects)
+import Model (AppEffects, statusPlayState, PlayState(..))
 import Router (routeSignal)
 import Components.App (ui, Query(..), init)
+import Mpd as M
 
 
 main :: Eff (AppEffects ()) Unit
@@ -18,11 +19,14 @@ main = runHalogenAff do
     body <- awaitBody
     driver <- runUI ui (parentState init) body
     forkAff $ routeSignal driver
-    driver (left $ action Update)
-    repeat 1000 $ driver (left $ action Update)
+    updater driver
 
 
-repeat :: forall e a. Int -> Aff e a -> Aff e Unit
-repeat ms a = later' ms $ do
-  a
-  repeat ms a
+updater driver = do
+    (Tuple status song) <- M.fetchStatusSong
+    driver $ left $ action $ Update status song
+    if statusPlayState <$> status == Just Playing
+        then later' 1000 (updater driver)
+        else do
+            M.queryMpd "idle"
+            updater driver
