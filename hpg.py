@@ -44,7 +44,6 @@ def mpd():
         answer["result"] = result.decode()
     except:
         answer["error"] = str(sys.exc_info()[1])
-        raise
     return answer
 
 

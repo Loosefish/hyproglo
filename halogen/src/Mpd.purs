@@ -3,6 +3,7 @@ module Mpd where
 import Hpg.Prelude
 
 import Control.Monad.Except (runExcept)
+import Control.Monad.Aff (attempt)
 
 import Data.Array as A
 import Data.Foreign (fail, ForeignError(..))
@@ -65,11 +66,13 @@ fetch q = parseMany <$> queryMpd q
 
 queryMpd :: String -> MpdEffect
 queryMpd code = do
-    result <- post "/mpd" code
-    let response = result.response
-    pure case runExcept $ read response of
-        Right mpd -> mpd
-        Left _ -> Mpd (Left "Invalid response")
+    result <- attempt $ post "/mpd" code
+    pure case result of
+        Left _ -> Mpd (Left "Communication error")
+        Right res -> do
+            case runExcept $ read res.response of
+                Left _ -> Mpd (Left "Invalid response")
+                Right mpd -> mpd
 
 
 toAssoc :: Mpd -> Assoc String String

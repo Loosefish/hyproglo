@@ -25,8 +25,9 @@ main = runHalogenAff do
 updater driver = do
     (Tuple status song) <- M.fetchStatusSong
     driver $ left $ action $ Update status song
-    if statusPlayState <$> status == Just Playing
-        then later' 1000 (updater driver)
-        else do
+    case statusPlayState <$> status of
+        Just Playing -> later' 1000 (updater driver) 
+        Just _ -> do
             M.queryMpd "idle"
             updater driver
+        _ -> later' 5000 (updater driver) 
