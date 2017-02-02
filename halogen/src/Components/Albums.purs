@@ -125,7 +125,7 @@ render { artist, albums, busy, currentSong } =
             maybePut image $ A.head songs
       where
         image (Song { file }) =
-            H.div [toClass "col-sm-4 col-xs-hidden"] $ A.singleton $
+            H.div [toClass "col-sm-4 hidden-xs"] $ A.singleton $
                 H.img [src $ "/image/" <> file, toClass "img-responsive center-block"]
 
         songTable = H.table [toClass "table table-condensed table-hover"] <% do
