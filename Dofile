@@ -8,7 +8,7 @@ do_() {
 
 
 do_server() {
-    python hpg.py
+    go build -o hyproglo hpg.go
 }
 
 
