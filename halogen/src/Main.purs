@@ -29,5 +29,5 @@ updater driver = do
         Just Playing -> later' 1000 (updater driver) 
         Just _ -> do
             M.queryMpd "idle"
-            updater driver
+            later' 200 (updater driver)
         _ -> later' 5000 (updater driver) 
