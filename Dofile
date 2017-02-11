@@ -13,14 +13,16 @@ do_server() {
 
 
 do_halogen() {
+    (
+    # TODO: check if -optimise still breaks
     cd halogen
     case $1 in
-        w)  pulp --before clear -w browserify -O --to ../server/app.js
+        w)  pulp --before clear -w browserify --to ../server/app.js
             ;;
-        *)  pulp browserify --optimise --to ../server/app.js
+        *)  pulp browserify --to ../server/app.js
             ;;
     esac
-    cd ..
+    )
 }
 
 do_tags() {
