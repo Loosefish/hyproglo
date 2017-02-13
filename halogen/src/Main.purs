@@ -12,6 +12,7 @@ import Model (AppEffects, statusPlayState, PlayState(..))
 import Router (routeSignal)
 import Components.App (ui, Query(..), init)
 import Mpd as M
+import Network.HTTP.Affjax (AJAX)
 
 
 main :: Eff (AppEffects ()) Unit
@@ -19,15 +20,20 @@ main = runHalogenAff do
     body <- awaitBody
     driver <- runUI ui (parentState init) body
     forkAff $ routeSignal driver
-    updater driver
+    updater (driver <<< left <<< action)
 
 
-updater driver = do
-    (Tuple status song) <- M.fetchStatusSong
-    driver $ left $ action $ Update status song
-    case statusPlayState <$> status of
-        Just Playing -> later' 1000 (updater driver) 
-        Just _ -> do
-            M.queryMpd "idle"
-            later' 200 (updater driver)
-        _ -> later' 5000 (updater driver) 
+updater :: forall a e q. ((q -> Query q) -> Aff (ajax :: AJAX | a) e) -> Aff (ajax :: AJAX | a) Unit
+updater appAction = forkLater 0 update
+  where
+    forkLater i = void <<< forkAff <<< later' i
+    update = do 
+        (Tuple status song) <- M.fetchStatusSong
+        appAction $ Update status song
+        delay <- case statusPlayState <$> status of
+            Just Playing -> pure 1000
+            Just _ -> do
+                M.queryMpd "idle"
+                pure 100
+            Nothing -> pure 5000
+        forkLater delay update
