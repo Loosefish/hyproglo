@@ -3,16 +3,19 @@ module Components.App where
 import Hpg.Prelude
 
 import Data.Array (catMaybes, singleton)
+import Data.Either.Nested (Either3)
+import Data.Functor.Coproduct.Nested (Coproduct3)
 import Data.String as S
 
 import DOM.HTML.Types (WINDOW)
 
 import Halogen as HA
-import Halogen (Component, ChildF, ParentDSL, ParentHTML, ParentState)
-import Halogen.Component (query')
-import Halogen.Component.ChildPath (ChildPath, cpL, cpR, (:>))
-import Halogen.HTML.Indexed as H
-import Halogen.HTML.Properties.Indexed (href, src)
+import Halogen (Component, ParentDSL, ParentHTML)
+import Halogen.Query (query')
+import Halogen.Component.ChildPath (cp1, cp2, cp3)
+import Halogen.HTML (HTML)
+import Halogen.HTML as H
+import Halogen.HTML.Properties (href, src)
 
 import Components.Albums as CAL
 import Components.Artists as CAR
@@ -36,26 +39,11 @@ data Query a
     | GetUpdate a
     | Update (Maybe Status) (Maybe Song) a
     | SendCmd String a
-data Flag = Random | Repeat | Single
 
 
 -- Compound types
-type ChildState = Either CAR.State (Either CAL.State CP.State)
-type ChildQuery = Coproduct CAR.Query (Coproduct CAL.Query CP.Query)
-type ChildSlot = Either CAR.Slot (Either CAL.Slot CP.Slot)
-
-type State' g = ParentState State ChildState Query ChildQuery g ChildSlot
-type Query' = Coproduct Query (ChildF ChildSlot ChildQuery)
-
--- Child paths
-pathArtists :: ChildPath CAR.State ChildState CAR.Query ChildQuery CAR.Slot ChildSlot
-pathArtists = cpL
-
-pathAlbums :: ChildPath CAL.State ChildState CAL.Query ChildQuery CAL.Slot ChildSlot
-pathAlbums = cpR :> cpL
-
-pathPlaylist :: ChildPath CP.State ChildState CP.Query ChildQuery CP.Slot ChildSlot
-pathPlaylist = cpR :> cpR
+type ChildQuery = Coproduct3 CAR.Query CAL.Query CP.Query
+type ChildSlot = Either3 CAR.Slot CAL.Slot CP.Slot
 
 
 init :: State
@@ -66,34 +54,34 @@ init =
     }
 
 
-ui :: forall eff. Component (State' (Aff (AppEffects eff))) Query' (Aff (AppEffects eff))
-ui = HA.parentComponent { render, eval, peek: Just peek }
+component :: forall eff. Component HTML Query Unit Void (Aff (AppEffects eff))
+component = HA.parentComponent
+    { render
+    , eval
+    , initialState: const init
+    , receiver: const Nothing
+    }
 
 
-eval :: forall eff. Query ~> ParentDSL State ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
-eval (SetView (Albums artist album) next) = do
-    query' pathAlbums CAL.Slot (HA.action $ CAL.SetArtist artist album)
-    HA.modify (_ { view = Albums artist album })
-    pure next
-
+eval :: forall eff. Query ~> ParentDSL State Query ChildQuery ChildSlot Void (Aff (AppEffects eff))
 eval (SetView view next) = do
+    void $ case view of
+        Albums artist album -> query' cp2 CAL.Slot (HA.action $ CAL.SetArtist artist album)
+        _ -> pure Nothing
     HA.modify (_ { view = view})
     pure next
 
 eval (GetUpdate next) = do
-    (Tuple status song) <- HA.fromAff $ fetchStatusSong
+    (Tuple status song) <- HA.liftAff $ fetchStatusSong
     eval $ Update status song next
 
 eval (Update status song next) = do
     -- Update playlist if changed
     oldStatus <- HA.gets _.status
     when (eqBy (map statusPlaylist) oldStatus status)
-        (void $ query' pathPlaylist CP.Slot $ HA.action CP.GetPlaylist)
+        (void $ query' cp3 CP.Slot $ HA.action CP.GetPlaylist)
     -- Update title
-    HA.fromEff $ setTitle $ docTitle song status
-    -- Push new state to child components
-    query' pathAlbums CAL.Slot (HA.action $ CAL.SetCurrentSong song)
-    query' pathPlaylist CP.Slot (HA.action $ CP.SetCurrentSong $ statusPlaylistSong =<< status)
+    HA.liftEff $ setTitle $ docTitle song status
     -- Update local state
     HA.modify (_ { status = status, song = song})
     pure next
@@ -105,11 +93,11 @@ eval (Update status song next) = do
     docTitle _ _ = "HyProGlo"
 
 eval (SendCmd cmd next) = do
-    HA.fromAff $ queryMpd cmd
+    void $ HA.liftAff $ queryMpd cmd
     eval (GetUpdate next)
 
 
-render :: forall eff. State -> ParentHTML ChildState Query ChildQuery (Aff (AppEffects eff)) ChildSlot
+render :: forall eff. State -> ParentHTML Query ChildQuery ChildSlot (Aff (AppEffects eff))
 render { status, song, view } =
     H.div [toClass "container-fluid"] <% do
         put $ H.div [toClass "row"] <% do
@@ -180,25 +168,10 @@ render { status, song, view } =
           where
             percent = styleProp $ "width:" <> show ((elapsed * 100) / total) <> "%;"
 
-    child Artists = H.slot' pathArtists CAR.Slot CAR.child
-    child (Albums artist album) = H.slot' pathAlbums CAL.Slot $ CAL.child artist album song
-    child Playlist = H.slot' pathPlaylist CP.Slot $ CP.child $ statusPlaylistSong =<< status
+    child Artists = H.slot' cp1 CAR.Slot CAR.component unit peek
+    child (Albums artist album) = H.slot' cp2 CAL.Slot (CAL.component artist album) song peek
+    child Playlist = H.slot' cp3 CP.Slot CP.component (statusPlaylistSong =<< status) peek
 
 
--- | Watch child queries to update on interesting events
-peek (HA.ChildF _ q) = case q of
-    Coproduct (Right (Coproduct (Left q'))) -> peekAlbums q'
-    Coproduct (Right (Coproduct (Right q'))) -> peekPlaylist q'
-    Coproduct (Left q') -> peekArtists q'
-  where
-    peekArtists (CAR.PlayRandomAlbum _) = eval $ GetUpdate unit 
-    peekArtists _ = pure unit
-
-    peekAlbums (CAL.PlayAlbum _ _ _) = eval $ GetUpdate unit
-    peekAlbums (CAL.PlayArtist _) = eval $ GetUpdate unit
-    peekAlbums _ = pure unit
-
-    peekPlaylist (CP.Play _ _) = eval $ GetUpdate unit
-    peekPlaylist (CP.Delete _ _) = eval $ GetUpdate unit
-    peekPlaylist (CP.Clear _) = eval $ GetUpdate unit
-    peekPlaylist _ = pure unit
+peek :: Unit -> Maybe (Query Unit)
+peek _ = Just $ HA.action $ GetUpdate

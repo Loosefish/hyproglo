@@ -2,38 +2,40 @@ module Main where
 
 import Hpg.Prelude
 
-import Control.Monad.Aff (forkAff, later')
-import Data.Functor.Coproduct (left)
+import Control.Monad.Aff (forkAff, delay)
+import Data.Time.Duration (Milliseconds(..))
 
-import Halogen (parentState, runUI, action)
-import Halogen.Util (awaitBody, runHalogenAff)
+import Halogen (action)
+import Halogen.VDom.Driver (runUI)
+import Halogen.Aff.Effects (HalogenEffects)
+import Halogen.Aff.Util (awaitBody, runHalogenAff)
 
 import Model (AppEffects, statusPlayState, PlayState(..))
 import Router (routeSignal)
-import Components.App (ui, Query(..), init)
+import Components.App (component, Query(..))
 import Mpd as M
 import Network.HTTP.Affjax (AJAX)
 
 
-main :: Eff (AppEffects ()) Unit
+main :: Eff (HalogenEffects (AppEffects ())) Unit
 main = runHalogenAff do
     body <- awaitBody
-    driver <- runUI ui (parentState init) body
-    forkAff $ routeSignal driver
-    updater (driver <<< left <<< action)
+    driver <- runUI component unit body
+    _ <- forkAff $ routeSignal driver.query
+    updater (driver.query <<< action)
 
 
 updater :: forall a e q. ((q -> Query q) -> Aff (ajax :: AJAX | a) e) -> Aff (ajax :: AJAX | a) Unit
-updater appAction = forkLater 0 update
+updater appAction = void $ forkAff update
   where
-    forkLater i = void <<< forkAff <<< later' i
     update = do 
         (Tuple status song) <- M.fetchStatusSong
-        appAction $ Update status song
-        delay <- case statusPlayState <$> status of
-            Just Playing -> pure 1000
+        _ <- appAction $ Update status song
+        waitFor <- case statusPlayState <$> status of
+            Just Playing -> pure 1000.0
             Just _ -> do
-                M.queryMpd "idle"
-                pure 100
-            Nothing -> pure 5000
-        forkLater delay update
+                _ <- M.queryMpd "idle"
+                pure 100.0
+            Nothing -> pure 5000.0
+        delay $ Milliseconds waitFor
+        void $ forkAff update

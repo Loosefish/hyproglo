@@ -31,7 +31,7 @@ import Data.Functor.Coproduct (Coproduct(..), coproduct)
 import Data.List (List(..))
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), Replacement(..))
-import Data.Traversable (sequence)
+import Data.Traversable (sequence, traverse)
 import Data.Tuple (Tuple(..), fst, snd, uncurry, curry)
 
 eqBy :: forall a b. (Eq b) => (a -> b) -> a -> a -> Boolean

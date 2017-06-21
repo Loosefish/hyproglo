@@ -6,9 +6,8 @@ import Control.Monad.Except (runExcept)
 import Control.Monad.Aff (attempt)
 
 import Data.Array as A
-import Data.Foreign (fail, ForeignError(..))
-import Data.Foreign.Class (read, readProp, class IsForeign)
-import Data.Foreign.Null (unNull)
+import Data.Foreign (fail, ForeignError(..), readString, readNull, F, Foreign)
+import Data.Foreign.Index ((!))
 import Data.Int (fromString)
 import Data.List ((:))
 import Data.List as L
@@ -24,21 +23,23 @@ type Assoc a b = List (Tuple a b)
 
 
 data Mpd = Mpd (Either String String)
-instance mpdIsForeign :: IsForeign Mpd where
-    read value = do
-        result <- unNull <$> readProp "result" value
-        status <- unNull <$> readProp "status" value
-        error <- unNull <$> readProp "error" value
-        case [result, status, error] of
-            [Just r, _, _] -> pure $ case S.stripSuffix (Pattern "\nOK\n") r of
-                Nothing -> Mpd (Left r)
-                Just content -> Mpd (Right content)
 
-            [_ , _, Just e] -> failForeign $ "Error: " <> e
 
-            [_ , Just s, _] -> failForeign $ "Status: " <> s
+readMpd :: Foreign -> F Mpd
+readMpd value = do
+    result <- traverse readString =<< readNull =<< value ! "result"
+    status <- traverse readString =<< readNull =<< value ! "status"
+    error <- traverse readString =<< readNull =<< value ! "error"
+    case [result, status, error] of
+        [Just r, _, _] -> pure $ case S.stripSuffix (Pattern "\nOK\n") r of
+            Nothing -> Mpd (Left r)
+            Just content -> Mpd (Right content)
 
-            _ -> failForeign "Unexpected response"
+        [_ , _, Just e] -> failForeign $ "Error: " <> e
+
+        [_ , Just s, _] -> failForeign $ "Status: " <> s
+
+        _ -> failForeign "Unexpected response"
       where
         failForeign = fail <<< ForeignError
 
@@ -70,7 +71,7 @@ queryMpd code = do
     pure case result of
         Left _ -> Mpd (Left "Communication error")
         Right res -> do
-            case runExcept $ read res.response of
+            case runExcept $ readMpd res.response of
                 Left _ -> Mpd (Left "Invalid response")
                 Right mpd -> mpd
 

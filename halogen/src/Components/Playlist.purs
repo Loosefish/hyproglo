@@ -4,10 +4,11 @@ import Hpg.Prelude
 
 import Data.Array as A
 
-import Halogen (Component, ComponentDSL, ComponentHTML)
+import Halogen (ComponentDSL, ComponentHTML)
 import Halogen as HA
-import Halogen.HTML.Indexed as H
-import Halogen.HTML.Properties.Indexed (colSpan)
+import Halogen.HTML as H
+import Halogen.HTML.Properties (colSpan)
+import Halogen.HTML.Events as HE
 
 import Model (Album(..), Song(..), AppEffects)
 import Util (toClass, clickable, fa, formatTime, onClickDo)
@@ -27,40 +28,46 @@ data Query a
     | Move Int Int a
     | Clear a
     | SetCurrentSong (Maybe Int) a
+
 data Slot = Slot
 derive instance eqSlot :: Eq Slot
 derive instance ordSlot :: Ord Slot
 
 
-ui :: forall eff. Component State Query (Aff (AppEffects eff))
-ui = HA.lifecycleComponent
+{-- component :: forall eff. Component HTML Query (Maybe Int) Unit (Aff (AppEffects eff)) --}
+component = HA.lifecycleComponent
     { render
     , eval
     , initializer: Just $ HA.action GetPlaylist
     , finalizer: Nothing
+    , initialState: \i -> { playlist: [], currentSong: i} 
+    , receiver: HE.input SetCurrentSong
     }
 
 
-eval :: forall eff. Query ~> ComponentDSL State Query (Aff (AppEffects eff))
+eval :: forall eff. Query ~> ComponentDSL State Query Unit (Aff (AppEffects eff))
 eval (GetPlaylist next) = do
-    playlist <- HA.fromAff M.fetchPlaylistSongs
+    playlist <- HA.liftAff M.fetchPlaylistSongs
     HA.modify (_ { playlist = playlist })
     pure next
 
 eval (Play i next) = do
-    HA.fromAff $ M.sendCmd $ M.Play $ Just i
+    _ <- HA.liftAff $ M.sendCmd $ M.Play $ Just i
     HA.modify (_ { currentSong = Just i })
+    HA.raise unit
     pure next
 
 eval (Delete i next) = do
-    HA.fromAff $ M.sendCmd $ M.Delete i
+    _ <- HA.liftAff $ M.sendCmd $ M.Delete i
     playlist <- HA.gets _.playlist
     HA.modify (_ { playlist = fromMaybe playlist $ A.deleteAt i playlist})
+    HA.raise unit
     pure next
 
 eval (Clear next) = do
-    HA.fromAff $ M.sendCmd M.Clear
+    _ <- HA.liftAff $ M.sendCmd M.Clear
     HA.modify (_ { playlist = [] })
+    HA.raise unit
     pure next
 
 eval (SetCurrentSong currentSong next) = do
@@ -68,7 +75,7 @@ eval (SetCurrentSong currentSong next) = do
     pure next
 
 eval (Move from to next) = do
-    HA.fromAff $ M.sendCmd $ M.Move from to
+    _ <- HA.liftAff $ M.sendCmd $ M.Move from to
     pure next
 
 
@@ -100,12 +107,3 @@ render { playlist, currentSong } =
             put $ H.span [clickable, onClickDo $ Move i (i - 1)] [fa "arrow-circle-up fa-lg"]
             put $ H.span [clickable, onClickDo $ Move i (i + 1)] [fa "arrow-circle-down fa-lg"]
             put $ H.span [clickable, onClickDo $ Delete i] [fa "minus-circle fa-lg"]
-
-
-child :: forall eff. Maybe Int -> Unit -> { component :: Component State Query (Aff (AppEffects eff)), initialState :: State }
-child i _ =
-    { component: ui
-    , initialState: { playlist: [], currentSong: i} 
-    }
-
-

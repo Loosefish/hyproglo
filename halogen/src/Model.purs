@@ -2,26 +2,18 @@ module Model where
 
 import Hpg.Prelude
 
-import Halogen (HalogenEffects, Component, ComponentDSL)
 import Network.HTTP.Affjax (AJAX)
 import DOM.HTML.Types (WINDOW)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Random (RANDOM)
 
 
-type AppEffects eff = HalogenEffects
+type AppEffects eff = 
     ( ajax :: AJAX
     , console :: CONSOLE
     , window :: WINDOW
     , random :: RANDOM
     | eff)
-
-type AppChild s q =
-  forall eff. Unit -> { component :: Component s q (Aff (AppEffects eff)), initialState :: s }
-
-type AppUpdate q s = forall eff. q ~> ComponentDSL s q (Aff (AppEffects eff))
-
-type AppUi s q = forall eff. Component s q (Aff (AppEffects eff))
 
 
 -- Artist
@@ -94,17 +86,3 @@ statusPlayState (Status s) = s.playState
 
 data PlayState = Playing | Stopped | Paused
 derive instance eqPlayState :: Eq PlayState
--- volume: -1
--- consume: 0
--- playlist: 2
--- playlistlength: 31
--- mixrampdb: 0.000000
--- state: pause
--- song: 3
--- songid: 4
--- !time: 189:272
--- !elapsed: 189.289
--- !bitrate: 0
--- !audio: 44100:24:2
--- nextsong: 4
--- nextsongid: 5

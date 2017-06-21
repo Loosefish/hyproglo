@@ -6,12 +6,13 @@ import Data.Array as A
 
 import DOM.HTML.Types (WINDOW)
 
-import Halogen (ComponentHTML)
+import Halogen (ComponentHTML, ComponentDSL)
 import Halogen as HA
-import Halogen.HTML.Indexed as H
-import Halogen.HTML.Properties.Indexed (src, colSpan, id_, ref)
+import Halogen.HTML as H
+import Halogen.HTML.Properties (src, colSpan, id_, ref)
+import Halogen.HTML.Events as HE
 
-import Model (Artist, Album(..), Song(..), albumId, songAlbum, AppUpdate, AppChild, artistName, songArtist, songDisc)
+import Model (Artist, Album(..), Song(..), AppEffects, albumId, songAlbum, artistName, songArtist, songDisc)
 import Mpd (sendCmd, sendCmds, fetchAlbums')
 import Mpd as M
 import Util (toClass, fa, clickable, nbsp, stripNum, formatTime, onClickDo, trimDate)
@@ -25,11 +26,11 @@ data Query a
     | AddSong Song a
     | Focus Album a
     | LoadAlbums a
+    | AfterLoad a
     | PlayAlbum Album Int a
     | PlayArtist a
     | SetArtist Artist (Maybe Album) a
     | SetCurrentSong (Maybe Song) a
-    | Loaded Album a
 
 
 type State =
@@ -41,37 +42,73 @@ type State =
     }
 
 
-eval :: AppUpdate Query State
+data Slot = Slot
+derive instance eqSlot :: Eq Slot
+derive instance ordSlot :: Ord Slot
+
+
+{-- component :: forall eff. Artist -> Maybe Album -> Component HTML Query (Maybe Song) Unit (Aff (AppEffects eff)) --}
+component artist focus = HA.lifecycleComponent
+    { render
+    , eval
+    , initializer: Just $ HA.action LoadAlbums
+    , finalizer: Nothing
+    , initialState: init
+    , receiver: HE.input SetCurrentSong
+    }
+  where
+    init currentSong = 
+        { artist: artist
+        , albums: []
+        , busy: false
+        , currentSong: currentSong
+        , focus: focus
+        }
+
+
+eval :: forall eff. Query ~> ComponentDSL State Query Unit (Aff (AppEffects eff))
 eval (LoadAlbums next) = do
     HA.modify (_ { busy = true })
-    withSongs <- HA.fromAff <$> fetchAlbums' =<< HA.gets _.artist
+    withSongs <- HA.liftAff <$> fetchAlbums' =<< HA.gets _.artist
     HA.modify (_ { albums = withSongs, busy = false })
-    pure next
+    eval $ AfterLoad next
+
+eval (AfterLoad next) = do
+    HA.gets _.focus >>= case _ of
+        Nothing -> pure next
+        Just album -> do
+            let focusId = albumId album
+            HA.getHTMLElementRef (HA.RefLabel focusId) >>= case _ of
+                Nothing -> pure unit
+                Just _ -> HA.liftEff $ scrollToId focusId
+            pure next
 
 eval (Focus album next) = do
-    HA.fromEff $ scrollToId $ albumId album
+    HA.liftEff $ scrollToId $ albumId album
     pure next
 
 eval (AddAlbum album next) = do
-    HA.fromAff $ sendCmd $ M.AddAlbum album
+    _ <- HA.liftAff $ sendCmd $ M.AddAlbum album
     pure next
 
 eval (AddArtist  next) = do
     addAlbums <- map (M.AddAlbum <<< fst) <$> HA.gets _.albums
-    HA.fromAff $ sendCmds addAlbums
+    _ <- HA.liftAff $ sendCmds addAlbums
     pure next
 
 eval (PlayAlbum album i next) = do
-    HA.fromAff $ sendCmds [M.Clear, M.AddAlbum album, M.Play $ Just i]
+    _ <- HA.liftAff $ sendCmds [M.Clear, M.AddAlbum album, M.Play $ Just i]
+    HA.raise unit
     pure next
 
 eval (PlayArtist next) = do
     addAlbums <- map (M.AddAlbum <<< fst) <$> HA.gets _.albums
-    HA.fromAff $ sendCmds $ [M.Clear] <> addAlbums <> [M.Play $ Just 0]
+    _ <- HA.liftAff $ sendCmds $ [M.Clear] <> addAlbums <> [M.Play $ Just 0]
+    HA.raise unit
     pure next
 
 eval (AddSong song next) = do
-    HA.fromAff $ sendCmd $ M.AddSong song
+    _ <- HA.liftAff $ sendCmd $ M.AddSong song
     pure next
 
 eval (SetArtist artist focus next) = do
@@ -80,13 +117,6 @@ eval (SetArtist artist focus next) = do
 
 eval (SetCurrentSong song next) =
     HA.modify (_ {currentSong = song}) $> next
-
-eval (Loaded album next) = do
-    focus <- HA.gets _.focus
-    when (focus == Just album) do
-        HA.modify (_ { focus = Nothing })
-        HA.fromEff $ scrollToId $ albumId album
-    pure next
 
 
 render :: State -> ComponentHTML Query
@@ -115,7 +145,7 @@ render { artist, albums, busy, currentSong } =
         put $ H.small_ $ map H.text ["(", trimDate date, ")"]
 
     albumRow (Tuple album songs) =
-        H.div [ref \_ -> HA.action $ Loaded album, id_ $ albumId album, toClass "row"] <% do
+        H.div [ref $ HA.RefLabel $ albumId album, id_ $ albumId album, toClass "row"] <% do
             put $ H.div [toClass "col-xs-12"] <% do
                 put $ H.h5_ <% do
                     put $ H.span [clickable, onClickDo $ PlayAlbum album 0] <% albumTitle album
@@ -156,28 +186,3 @@ render { artist, albums, busy, currentSong } =
             footer = H.tr_ <% do 
                 put $ H.td [colSpan $ width - 2] []
                 put $ H.td_ [H.text $ formatTime $ sum $ map (\(Song s) -> s.time) songs]
-
-
--- Component
-
-data Slot = Slot
-derive instance eqSlot :: Eq Slot
-derive instance ordSlot :: Ord Slot
-
-
-child :: Artist -> Maybe Album -> Maybe Song -> AppChild State Query
-child artist focus currentSong = \_ -> { component: ui, initialState: init }
-  where
-    ui = HA.lifecycleComponent
-        { render
-        , eval
-        , initializer: Just $ HA.action LoadAlbums
-        , finalizer: Nothing
-        }
-    init = 
-        { artist: artist
-        , albums: []
-        , busy: false
-        , currentSong: currentSong
-        , focus: focus
-        }

@@ -5,16 +5,18 @@ import Hpg.Prelude
 import Data.Char (fromCharCode)
 import Data.String as S
 
+import DOM.Event.Types (MouseEvent)
+
 import Unsafe.Coerce (unsafeCoerce)
 
-import Halogen.HTML.Core (HTML, Prop, attrName, className, prop, propName)
-import Halogen.HTML.Events.Indexed as HE
-import Halogen.HTML.Indexed as H
-import Halogen.HTML.Properties.Indexed (I, IProp, classes)
+import Halogen.HTML.Core (HTML, Prop, ClassName(..), prop, PropName(..))
+import Halogen.HTML.Events as HE
+import Halogen.HTML as H
+import Halogen.HTML.Properties (IProp, classes, class_)
 
 
-toClass :: forall r i. String -> IProp (class :: I | r) i
-toClass s = classes $ map className $ S.split (Pattern " ") s
+toClass :: forall r i. String -> IProp (class :: String | r) i
+toClass s = classes $ map ClassName $ S.split (Pattern " ") s
 
 
 fa :: forall p i. String -> HTML p i
@@ -41,16 +43,16 @@ formatTime total = show minutes <> ":" <> pad seconds
     pad s = (if s < 10 then "0" else "") <> show s
 
 
-clickable :: forall r i. IProp (class :: I | r) i
-clickable  = toClass "clickable"
+clickable :: forall r i. IProp (class :: String | r) i
+clickable  = class_ $ ClassName "clickable"
 
 
-onClickDo :: forall a b. (Unit -> b Unit) -> IProp ( onClick :: I | a) (b Unit)
+onClickDo :: forall a b. (Unit -> b Unit) -> IProp ( onClick :: MouseEvent | a) (b Unit)
 onClickDo = HE.onClick <<< HE.input_
 
 
-styleProp :: forall r i. String -> IProp (style :: I | r) i
-styleProp = refine $ prop (propName "style") (Just $ attrName "style")
+styleProp :: forall r i. String -> IProp (style :: String | r) i
+styleProp = refine $ prop (PropName "style")
   where
     refine :: forall a r' i'. (a -> Prop i') -> a -> IProp r' i'
     refine = unsafeCoerce
