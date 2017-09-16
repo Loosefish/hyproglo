@@ -23,6 +23,7 @@ routing =
     <|> (\name -> Albums (Artist { name }) Nothing) <$> (lit "" *> lit "music" *> str)
     <|> Artists <$ (lit "" *> lit "music")
     <|> Playlist <$ (lit "" *> lit "playlist")
+    <|> Timeline <$ (lit "" *> lit "timeline")
     <|> pure Artists
   where
     view name date title = let artist = Artist { name } in

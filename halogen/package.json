@@ -1,9 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "pulp": "pulp",
-    "build": "pulp browserify --optimise --to dist/app.js",
-    "watch": "pulp -w browserify --to dist/app.js"
+    "pulp": "pulp"
   },
   "dependencies": {
     "purescript": "^0.11.6"

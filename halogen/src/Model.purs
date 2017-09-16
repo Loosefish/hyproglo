@@ -34,7 +34,7 @@ newtype Album = Album
     , date :: String
     }
 derive instance eqAlbum :: Eq Album
-
+    
 albumId :: Album -> String
 albumId (Album a) = a.date <> "|" <> a.title
 

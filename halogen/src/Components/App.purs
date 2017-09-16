@@ -3,8 +3,8 @@ module Components.App where
 import Hpg.Prelude
 
 import Data.Array (catMaybes, singleton)
-import Data.Either.Nested (Either3)
-import Data.Functor.Coproduct.Nested (Coproduct3)
+import Data.Either.Nested (Either4)
+import Data.Functor.Coproduct.Nested (Coproduct4)
 import Data.String as S
 
 import DOM.HTML.Types (WINDOW)
@@ -12,7 +12,7 @@ import DOM.HTML.Types (WINDOW)
 import Halogen as HA
 import Halogen (Component, ParentDSL, ParentHTML)
 import Halogen.Query (query')
-import Halogen.Component.ChildPath (cp1, cp2, cp3)
+import Halogen.Component.ChildPath (cp1, cp2, cp3, cp4)
 import Halogen.HTML (HTML)
 import Halogen.HTML as H
 import Halogen.HTML.Properties (href, src)
@@ -20,6 +20,7 @@ import Halogen.HTML.Properties (href, src)
 import Components.Albums as CAL
 import Components.Artists as CAR
 import Components.Playlist as CP
+import Components.Timeline as CT
 import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), artistName, statusPlaylistSong, statusPlaylist)
 import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
 import Mpd (queryMpd, fetchStatusSong)
@@ -33,7 +34,7 @@ type State =
     , status :: Maybe Status
     }
 
-data View = Artists | Albums Artist (Maybe Album) | Playlist
+data View = Artists | Albums Artist (Maybe Album) | Playlist | Timeline
 derive instance eqView :: Eq View
 data Query a
     = SetView View a
@@ -43,8 +44,8 @@ data Query a
 
 
 -- Compound types
-type ChildQuery = Coproduct3 CAR.Query CAL.Query CP.Query
-type ChildSlot = Either3 CAR.Slot CAL.Slot CP.Slot
+type ChildQuery = Coproduct4 CAR.Query CAL.Query CP.Query CT.Query
+type ChildSlot = Either4 CAR.Slot CAL.Slot CP.Slot CT.Slot
 
 
 init :: State
@@ -107,17 +108,22 @@ render { status, song, view } =
                 put $ H.ul [toClass "nav nav-sidebar"] <% do
                     musicLink
                     playlistLink
+                    timelineLink
                 put $ H.div_ <% do
                     maybePut id (songInfo <$> status <*> song)
                     maybePut controls status
             put $ child view
   where
-    musicLink = navLink (view /= Playlist) "#/music" <% do
+    musicLink = navLink (view == Artists) "#/music" <% do
         put $ fa "database fa-fw"
         put $ (H.text $ nbsp <> "Music")
         case view of
             Albums (Artist { name }) _ -> put $ H.text $ nbsp <> "/" <> nbsp <> name
             _ -> pure unit
+
+    timelineLink = navLink (view == Timeline) "#/timeline" <% do
+        put $ fa "clock-o fa-fw"
+        put $ (H.text $ nbsp <> "Timeline")
 
     playlistLink = navLink (view == Playlist) "#/playlist" <% do
         put $ fa "list fa-fw"
@@ -172,6 +178,7 @@ render { status, song, view } =
     child Artists = H.slot' cp1 CAR.Slot CAR.component unit peek
     child (Albums artist album) = H.slot' cp2 CAL.Slot (CAL.component artist album) song peek
     child Playlist = H.slot' cp3 CP.Slot CP.component (statusPlaylistSong =<< status) peek
+    child Timeline = H.slot' cp4 CT.Slot CT.component unit peek
 
 
 peek :: Unit -> Maybe (Query Unit)
