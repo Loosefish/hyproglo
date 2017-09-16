@@ -26,6 +26,7 @@ import Mpd (queryMpd, fetchStatusSong)
 
 foreign import setTitle :: forall eff. String -> Eff (window :: WINDOW | eff) Unit
 
+
 type State =
     { view :: View
     , song :: Maybe Song

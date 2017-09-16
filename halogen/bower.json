@@ -1,27 +1,23 @@
 {
-  "private": true,
-  "name": "purescript-halogen-template",
+  "name": "halogen",
   "ignore": [
     "**/.*",
     "node_modules",
     "bower_components",
-    "output",
-    "dist"
+    "output"
   ],
   "dependencies": {
+    "purescript-prelude": "^3.1.0",
     "purescript-console": "^3.0.0",
-    "purescript-halogen": "^2.1.0",
+    "purescript-halogen": "^2.3.0",
+    "purescript-random": "^3.0.0",
     "purescript-affjax": "^4.0.0",
-    "purescript-routing": "^5.1.0",
-    "purescript-random": "^3.0.0"
-  },
-  "resolutions": {
-    "purescript-console": "^3.0.0",
-    "purescript-eff": "^3.1.0",
-    "purescript-prelude": "^3.0.0"
+    "purescript-routing": "^5.1.0"
   },
   "devDependencies": {
-    "purescript-foreign": "^4.0.1",
-    "purescript-datetime": "^3.2.0"
+    "purescript-psci-support": "^3.0.0"
+  },
+  "resolutions": {
+    "purescript-aff": "^3.0.0"
   }
 }
