@@ -6,6 +6,7 @@ module Hpg.Prelude
     , module Control.Monad.Eff.Console
     , module Data.Either
     , module Data.Foldable
+    , module Data.Function
     , module Data.Functor.Coproduct
     , module Data.List
     , module Data.Maybe
@@ -27,6 +28,7 @@ import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Array (singleton)
 import Data.Either (Either(..))
 import Data.Foldable (sum, and, or, all, any)
+import Data.Function (on)
 import Data.Functor.Coproduct (Coproduct(..), coproduct)
 import Data.List (List(..))
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
@@ -35,7 +37,7 @@ import Data.Traversable (sequence, traverse)
 import Data.Tuple (Tuple(..), fst, snd, uncurry, curry)
 
 eqBy :: forall a b. (Eq b) => (a -> b) -> a -> a -> Boolean
-eqBy f = (\x y -> f x == f y)
+eqBy = on (==)
 
 
 -- | Pass the result a writer execution to an `outer` function.

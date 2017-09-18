@@ -21,7 +21,7 @@ import Components.Albums as CAL
 import Components.Artists as CAR
 import Components.Playlist as CP
 import Components.Timeline as CT
-import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), artistName, statusPlaylistSong, statusPlaylist)
+import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), statusPlaylistSong, statusPlaylist, albumUrl)
 import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
 import Mpd (queryMpd, fetchStatusSong)
 
@@ -108,22 +108,18 @@ render { status, song, view } =
                 put $ H.ul [toClass "nav nav-sidebar"] <% do
                     musicLink
                     playlistLink
-                    timelineLink
                 put $ H.div_ <% do
                     maybePut id (songInfo <$> status <*> song)
                     maybePut controls status
             put $ child view
   where
-    musicLink = navLink (view == Artists) "#/music" <% do
+    musicLink = navLink (view /= Playlist) "#/music" <% do
         put $ fa "database fa-fw"
         put $ (H.text $ nbsp <> "Music")
         case view of
             Albums (Artist { name }) _ -> put $ H.text $ nbsp <> "/" <> nbsp <> name
+            Timeline -> put $ H.text $ nbsp <> "/" <> nbsp <> "Timeline"
             _ -> pure unit
-
-    timelineLink = navLink (view == Timeline) "#/timeline" <% do
-        put $ fa "clock-o fa-fw"
-        put $ (H.text $ nbsp <> "Timeline")
 
     playlistLink = navLink (view == Playlist) "#/playlist" <% do
         put $ fa "list fa-fw"
@@ -156,13 +152,12 @@ render { status, song, view } =
 
     songInfo (Status { time }) (Song { file, title, artist, album }) = H.div_ <% do
         put $ H.img [toClass "img-responsive hidden-xs center-block", src $ "/image/" <> file]
-        put $ H.a (catMaybes [albumsUrl <$> album]) <% do
+        put $ H.a (catMaybes [href <<< albumUrl <$> album]) <% do
             put $ H.h5 [toClass "text-center"] [H.text title]
             put $ H.h6 [toClass "text-center"] [H.text artist]
             maybePut albumInfo album
         maybePut progress time
       where
-        albumsUrl (Album a) = href $ S.joinWith "/" ["#", "music", artistName a.artist, a.date, a.title]
         albumInfo (Album a) =
             H.h6 [toClass "text-center"] <% do
                 put $ H.text a.title

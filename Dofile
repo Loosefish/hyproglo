@@ -27,7 +27,9 @@ do_halogen() {
 
 
 do_tags() {
-    psc-docs --format ctags halogen/src/**/*.purs > halogen/tags
+    cd halogen
+    yarn -s run purs docs --format ctags src/*.purs > tags
+    yarn -s run purs docs --format ctags src/**/*.purs >> tags
 }
 
 do_ide() {

@@ -6,6 +6,7 @@ import Network.HTTP.Affjax (AJAX)
 import DOM.HTML.Types (WINDOW)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Random (RANDOM)
+import Data.String as S
 
 
 type AppEffects eff = 
@@ -38,6 +39,8 @@ derive instance eqAlbum :: Eq Album
 albumId :: Album -> String
 albumId (Album a) = a.date <> "|" <> a.title
 
+albumUrl :: Album -> String
+albumUrl (Album a) = S.joinWith "/" ["#", "music", artistName a.artist, a.date, a.title]
 
 -- Song
 

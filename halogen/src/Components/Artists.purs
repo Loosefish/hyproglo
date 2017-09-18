@@ -63,8 +63,9 @@ eval (PlayRandomAlbum next) = do
 render :: State -> HA.ComponentHTML Query
 render artists =
     H.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"] <% do
-        put $ H.h4 [toClass "page-header"] [H.text "Album Artists"]
+        put $ H.h4 [toClass "page-header"] [H.text "Music"]
         put $ H.ul [toClass "nav nav-pills"] <% do
+            put $ H.li_ [H.a [href "#/timeline"] [fa "clock-o", H.text $ nbsp <> "Timeline"]]
             put $ H.li_ [H.a [clickable, onClickDo PlayRandomAlbum] [fa "random", H.text $ nbsp <> "Play random album"]]
         put $ H.hr_
         puts $ map artistGroup artistsByLetter
