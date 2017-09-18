@@ -177,12 +177,16 @@ render { artist, albums, busy, currentSong } =
 
             songRow i s@(Song { title, track, time, disc }) =
                 H.tr (if currentSong == Just s then [toClass "info"] else []) <% do
-                    put $ H.td_ [H.text $ fromMaybe "" $ stripNum track]
-                    when various $ put $ H.td_ [H.text $ songArtist s]
-                    put $ H.td [clickable, onClickDo $ PlayAlbum album i] [H.text title]
-                    put $ H.td_ [H.text $ formatTime time]
-                    put $ H.td [clickable, onClickDo $ AddSong s] [fa "plus-circle"]
+                    put $ songTd 1 playThis [H.text $ fromMaybe "" $ stripNum track]
+                    when various $ put $ songTd 4 playThis [H.text $ songArtist s]
+                    put $ songTd (if various then 5 else 9) playThis [H.text title]
+                    put $ songTd 1 playThis [H.text $ formatTime time]
+                    put $ songTd 1 (AddSong s) [fa "plus-circle"]
+              where
+                songTd w a = H.td [toClass $ "clickable col-xs-" <> show w, onClickDo a]
+                playThis = PlayAlbum album i
 
             footer = H.tr_ <% do 
                 put $ H.td [colSpan $ width - 2] []
                 put $ H.td_ [H.text $ formatTime $ sum $ map (\(Song s) -> s.time) songs]
+                put $ H.td_ []
