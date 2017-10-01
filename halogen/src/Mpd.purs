@@ -172,6 +172,10 @@ fetchSongs (Album { artist: Artist artist, date: date, title: title }) =
         ["find Album", quote title, "Date", quote date, "AlbumArtist", quote artist.name]
 
 
+searchAny :: forall eff. String -> Aff (ajax :: AJAX | eff) (Array Song)
+searchAny query = fetch $ "search any " <> quote query
+
+
 -- Control
 
 data MpdCmd
