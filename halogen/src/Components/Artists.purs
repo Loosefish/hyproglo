@@ -25,16 +25,19 @@ import Halogen.HTML.Properties (ButtonType(ButtonButton))
 
 import Network.HTTP.Affjax (AJAX)
 
-import Model (Artist(..), Song(..), AppEffects)
-import Mpd (fetchAlbumArtists, fetchAllAlbums, searchAny)
+import Model (Artist(..), Album(..), Song(..), AppEffects)
+import Mpd (fetchAlbumArtists, fetchAllAlbums, searchAny, searchTitle)
 import Mpd as M
-import Util (toClass, clickable, fa, nbsp, onClickDo)
+import Util (toClass, clickable, fa, nbsp, onClickDo, trimDate, formatTime)
 
 foreign import getSearchQuery :: Unit -> String
 foreign import setSearchQuery :: String -> Unit
 
 
-data Query a = LoadArtists a | PlayRandomAlbum a | Search a | SearchClear a | SearchKey KeyboardEvent a
+data Query a = LoadArtists a
+             | Search a | SearchClear a | SearchKey KeyboardEvent a
+             | PlayRandomAlbum a
+             | PlaySong Song a | AddSong Song a
 type State =
     { artists :: Array Artist
     , results :: Maybe (Array Song)
@@ -73,7 +76,7 @@ eval (PlayRandomAlbum next) = do
         _ -> pure next
 
 eval (Search next) = do
-    songs <- HA.liftAff $ searchAny $ getSearchQuery unit
+    songs <- HA.liftAff $ searchTitle $ getSearchQuery unit
     HA.modify (_ { results = Just songs })
     pure next
 
@@ -88,6 +91,16 @@ eval (SearchKey event next) =
          "Escape" -> eval $ SearchClear next
          _ -> pure next
 
+eval (PlaySong song next) = do
+    _ <- HA.liftAff $ M.sendCmds [M.Clear, M.AddSong song, M.Play Nothing]
+    HA.raise unit
+    pure next
+
+eval (AddSong song next) = do
+    _ <- HA.liftAff $ M.sendCmd $ M.AddSong song
+    HA.raise unit
+    pure next
+
 
 
 render :: State -> HA.ComponentHTML Query
@@ -101,19 +114,39 @@ render { artists, results } =
         put $ H.hr_
         case results of
             Nothing -> puts $ map artistGroup artistsByLetter
-            Just songs -> puts $ map result songs
+            Just songs -> put $ resultTable songs
   where
     artistGroup group = H.span_ <% do
         put $ H.text $ letter $ N.head group
         put $ H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
+
     artistLink (Artist { name }) =
         H.li_ [H.a [HP.href $ "#/music/" <> name] [H.text name]]
+
     artistsByLetter = A.groupBy (eqBy letter) artists
+
     letter (Artist { name }) = S.toUpper $ S.take 1 name
+
     searchBar = H.p_ $ A.singleton $ H.div [toClass "input-group"] <% do
        put $ H.span [toClass "input-group-btn"]
            [H.button [toClass "btn btn-default", HP.type_ HP.ButtonButton, onClickDo SearchClear] [fa "times"]]
        put $ H.input [HP.id_ "query", toClass "form-control", HP.type_ HP.InputText, HP.placeholder "Search", HE.onKeyDown $ HE.input SearchKey]
        put $ H.span [toClass "input-group-btn"]
            [H.button [toClass "btn btn-default", HP.type_ ButtonButton, onClickDo Search] [fa "search"]]
-    result (Song { artist, title, track, time, disc }) = H.div_ [H.text artist, H.text " - ", H.text title]
+
+    resultTable songs = H.table [toClass "table table-condensed table-hover"] <% do
+        put $ H.thead_ <% do
+            put $ H.tr_ <% do
+                puts $ map (H.th_ <<< A.singleton <<< H.text) ["Title", "Artist", "Album", "Time"]
+                put $ H.th_ []
+        put $ H.tbody_ $ map resultRow songs
+
+    resultRow song@(Song s) = H.tr_ <% do
+        puts $ map (playTd <<< A.singleton <<< H.text) [s.title, s.artist]
+        put $ playTd $ case s.album of
+                   Just (Album a) -> [H.text $ a.title <> nbsp, H.em_ [H.text $ "(" <> trimDate a.date <> ")"]]
+                   _ -> []
+        put $ playTd [H.text $ formatTime s.time]
+        put $ H.td_ [H.span [clickable, onClickDo $ AddSong song] [fa "plus-circle fa-lg"]]
+      where
+        playTd = H.td [toClass "clickable", onClickDo $ PlaySong song]
