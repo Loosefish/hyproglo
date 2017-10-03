@@ -6,6 +6,8 @@ import Network.HTTP.Affjax (AJAX)
 import DOM.HTML.Types (WINDOW)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Random (RANDOM)
+
+import Data.Array as A
 import Data.String as S
 
 
@@ -64,6 +66,12 @@ songArtist (Song s) = s.artist
 songDisc :: Song -> Maybe String
 songDisc (Song s) = s.disc
 
+songsByAlbum :: Array Song -> Array (Tuple Album (Array Song))
+songsByAlbum songs = map (\a -> Tuple a $ filter a ) albums
+  where
+    albums = A.nub $ A.mapMaybe (\(Song { album }) -> album) songs
+    filter album =
+        A.filter (\(Song s) -> maybe false ((==) album) s.album) songs
 
 -- Status
 

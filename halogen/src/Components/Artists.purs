@@ -16,7 +16,7 @@ import Data.NonEmpty as N
 import DOM.Event.KeyboardEvent as K
 import DOM.Event.KeyboardEvent (KeyboardEvent)
 
-import Halogen (ComponentDSL)
+import Halogen (ComponentDSL, HTML)
 import Halogen as HA
 import Halogen.HTML as H
 import Halogen.HTML.Events as HE
@@ -25,7 +25,7 @@ import Halogen.HTML.Properties (ButtonType(ButtonButton))
 
 import Network.HTTP.Affjax (AJAX)
 
-import Model (Artist(..), Album(..), Song(..), AppEffects, albumUrl)
+import Model (Artist(..), Album(..), Song(..), AppEffects, albumUrl, songsByAlbum)
 import Mpd (fetchAlbumArtists, fetchAllAlbums, search)
 import Mpd as M
 import Util (toClass, clickable, fa, nbsp, onClickDo, trimDate, formatTime)
@@ -40,7 +40,7 @@ data Query a = LoadArtists a
              | PlaySong Song a | AddSong Song a
 type State =
     { artists :: Array Artist
-    , results :: Maybe (Tuple (Array Song) (Array Album))
+    , results :: Maybe (Tuple (Array Song) (Array (Tuple Album (Array Song))))
     }
 type Effects eff = (ajax :: AJAX | eff)
 data Slot = Slot
@@ -78,8 +78,8 @@ eval (PlayRandomAlbum next) = do
 eval (Search next) = do
     let query = getSearchQuery unit
     songs <- HA.liftAff $ search "Title" query
-    albums <- HA.liftAff $ search "Album" query
-    HA.modify (_ { results = Just (Tuple songs albums) })
+    albumSongs <- HA.liftAff $ songsByAlbum <$> search "Album" query
+    HA.modify (_ { results = Just (Tuple songs albumSongs) })
     pure next
 
 eval (SearchClear next) = do
@@ -112,24 +112,14 @@ render { artists, results } =
         put $ H.div [toClass "row"] $ map (H.div [toClass "col-xs-12 col-md-6"] <<< A.singleton) [pillButtons, searchBar]
         put $ H.hr_
         case results of
-            Nothing -> puts $ map artistGroup artistsByLetter
+            Nothing -> put $ artistList
             Just (Tuple songs albums) -> do
                put $ H.h5_ [H.text "Songs"]
                put $ songResults songs
+               put $ H.hr_
                put $ H.h5_ [H.text "Albums"]
                put $ albumResults albums
   where
-    artistGroup group = H.span_ <% do
-        put $ H.text $ letter $ N.head group
-        put $ H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
-
-    artistLink (Artist { name }) =
-        H.li_ [H.a [HP.href $ "#/music/" <> name] [H.text name]]
-
-    artistsByLetter = A.groupBy (eqBy letter) artists
-
-    letter (Artist { name }) = S.toUpper $ S.take 1 name
-
     pillButtons = H.ul [toClass "nav nav-pills"] <% do
         put $ H.li_ [H.a [HP.href "#/timeline"] [fa "clock-o", H.text $ nbsp <> "Timeline"]]
         put $ H.li_ [H.a [clickable, onClickDo PlayRandomAlbum] [fa "random", H.text $ nbsp <> "Play random album"]]
@@ -165,8 +155,23 @@ render { artists, results } =
             | i `mod` 2 == 0 = [H.div [toClass "clearfix visible-xs-block"] [], albumCol a]
             | otherwise = [albumCol a]
 
-        albumCol (Album a) = H.a [HP.href $ albumUrl (Album a), toClass "col-xs-6 col-sm-3"] <% do
-            {-- put image --}
+        albumCol (Tuple (Album a) songs) = H.a [HP.href $ albumUrl (Album a), toClass "col-xs-6 col-sm-3"] <% do
+            maybePut image $ A.head songs
             put $ H.h6 [toClass "text-center"] <% do
                 put $ H.text $ a.title <> nbsp
-                put $ H.p_ [H.small_ $ map H.text ["(", a.date, ")"]]
+                put $ H.p_ [H.small_ $ map H.text ["(", trimDate a.date, ")"]]
+          where
+            image (Song { file }) = H.img [HP.src $ "/image/" <> file, toClass "img-responsive center-block"]
+
+    artistList = H.div_ $ map artistGroup artistsByLetter
+      where
+        artistGroup group = H.span_ <% do
+            put $ H.text $ letter $ N.head group
+            put $ H.ul [toClass "nav nav-pills"] $ map artistLink $ A.fromFoldable group
+
+        artistLink (Artist { name }) =
+            H.li_ [H.a [HP.href $ "#/music/" <> name] [H.text name]]
+
+        artistsByLetter = A.groupBy (eqBy letter) artists
+
+        letter (Artist { name }) = S.toUpper $ S.take 1 name
