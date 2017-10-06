@@ -15,6 +15,7 @@ import Halogen.Query (query')
 import Halogen.Component.ChildPath (cp1, cp2, cp3, cp4)
 import Halogen.HTML (HTML)
 import Halogen.HTML as H
+import Halogen.HTML.Properties as HP
 import Halogen.HTML.Properties (href, src)
 
 import Components.Albums as CAL
@@ -22,7 +23,7 @@ import Components.Artists as CAR
 import Components.Playlist as CP
 import Components.Timeline as CT
 import Model (AppEffects, Album(..), Artist(..), PlayState(..), Song(..), Status(..), statusPlaylistSong, statusPlaylist, albumUrl)
-import Util (toClass, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
+import Util (cls, nbsp, fa, trimDate, onClickDo, formatTime, styleProp)
 import Mpd (queryMpd, fetchStatusSong)
 
 foreign import setTitle :: forall eff. String -> Eff (window :: WINDOW | eff) Unit
@@ -101,35 +102,39 @@ eval (SendCmd cmd next) = do
 
 render :: forall eff. State -> ParentHTML Query ChildQuery ChildSlot (Aff (AppEffects eff))
 render { status, song, view } =
-    H.div [toClass "container-fluid"] <% do
-        put $ H.div [toClass "row"] <% do
-            put $ H.div [toClass "col-xs-12 col-sm-3 col-md-2 sidebar"] <% do
-                put $ H.h4 [toClass "page-header"] [H.text $ "HyProGlo" <> nbsp]
-                put $ H.ul [toClass "nav nav-sidebar"] <% do
-                    musicLink
-                    playlistLink
+    H.div [cls "container-fluid"] <% do
+        put $ H.div [cls "row"] <% do
+            put $ H.div [cls "col-xs-12 col-sm-3 col-md-2 sidebar"] <% do
+                put $ H.h4 [cls "page-header"] [H.text $ "HyProGlo" <> nbsp]
+                put $ H.ul [cls "nav nav-sidebar"] <% do
+                    put musicLink
+                    put timelineLink
+                    put playlistLink
                 put $ H.div_ <% do
                     maybePut id (songInfo <$> status <*> song)
                     maybePut controls status
             put $ child view
   where
-    musicLink = navLink (view /= Playlist) "#/music" <% do
+    musicLink = navLink (view `notElem` [Playlist, Timeline]) "#/music" <% do
         put $ fa "database fa-fw"
         put $ (H.text $ nbsp <> "Music")
-        case view of
-            Albums (Artist { name }) _ -> put $ H.text $ nbsp <> "/" <> nbsp <> name
-            Timeline -> put $ H.text $ nbsp <> "/" <> nbsp <> "Timeline"
-            _ -> pure unit
+        maybePut H.text $ case view of
+            Albums (Artist { name }) _ -> Just $ nbsp <> "/" <> nbsp <> name
+            _ -> Nothing
 
     playlistLink = navLink (view == Playlist) "#/playlist" <% do
         put $ fa "list fa-fw"
         put $ H.text $ nbsp <> "Playlist"
         maybePut playlistBadge status
       where
-        playlistBadge (Status s) = H.span [toClass "badge pull-right"] [H.text $ show $ s.playlistLength]
+        playlistBadge (Status s) = H.span [cls "badge pull-right"] [H.text $ show $ s.playlistLength]
 
-    navLink active target content = put $
-        H.li (if active then [toClass "active"] else []) [H.a [href target] content]
+    timelineLink = navLink (view == Timeline) "#/timeline" <% do
+        put $ fa "clock-o"
+        put $ H.text $ nbsp <> "Timeline"
+
+    navLink active target content =
+        H.li (if active then [cls "active"] else []) [H.a [href target] content]
 
     controls (Status { random, repeat, single, playState }) = H.div_ <% do
         buttonGroup <% do
@@ -146,26 +151,26 @@ render { status, song, view } =
             button single (SendCmd $ "single " <> if single then "0" else "1") [H.text "1"]
       where
         buttonGroup = put <<<
-            H.div [toClass "btn-group btn-group-sm btn-group-justified"]
+            H.div [cls "btn-group btn-group-sm btn-group-justified"]
         button active action = put <<<
-            H.a [onClickDo action, toClass $ "btn btn-default" <> if active then " active" else ""]
+            H.a [onClickDo action, cls $ "btn btn-default" <> if active then " active" else ""]
 
     songInfo (Status { time }) (Song { file, title, artist, album }) = H.div_ <% do
-        put $ H.img [toClass "img-responsive hidden-xs center-block", src $ "/image/" <> file]
+        put $ H.img [cls "img-responsive hidden-xs center-block", src $ "/image/" <> file]
         put $ H.a (catMaybes [href <<< albumUrl <$> album]) <% do
-            put $ H.h5 [toClass "text-center"] [H.text title]
-            put $ H.h6 [toClass "text-center"] [H.text artist]
+            put $ H.h5 [cls "text-center"] [H.text title]
+            put $ H.h6 [cls "text-center"] [H.text artist]
             maybePut albumInfo album
         maybePut progress time
       where
         albumInfo (Album a) =
-            H.h6 [toClass "text-center"] <% do
+            H.h6 [cls "text-center"] <% do
                 put $ H.text a.title
                 put $ H.small_ [H.text $ " (" <> trimDate a.date <> ")"]
 
         progress (Tuple elapsed total) =
-            H.div [toClass "progress"] $ singleton $
-                H.div [toClass "progress-bar", percent] $
+            H.div [cls "progress"] $ singleton $
+                H.div [cls "progress-bar", percent] $
                     map H.text [formatTime elapsed, nbsp <> "/" <> nbsp, formatTime total ]
           where
             percent = styleProp $ "width:" <> show ((elapsed * 100) / total) <> "%;"

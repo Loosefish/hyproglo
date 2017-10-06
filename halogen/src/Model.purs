@@ -44,6 +44,9 @@ albumId (Album a) = a.date <> "|" <> a.title
 albumUrl :: Album -> String
 albumUrl (Album a) = S.joinWith "/" ["#", "music", artistName a.artist, a.date, a.title]
 
+albumTitle :: Album -> String
+albumTitle (Album a) = a.title
+
 -- Song
 
 newtype Song = Song

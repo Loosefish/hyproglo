@@ -18,6 +18,9 @@ import Halogen.HTML.Properties (IProp, classes, class_)
 toClass :: forall r i. String -> IProp (class :: String | r) i
 toClass s = classes $ map ClassName $ S.split (Pattern " ") s
 
+cls :: forall r i. String -> IProp (class :: String | r) i
+cls = toClass
+
 
 fa :: forall p i. String -> HTML p i
 fa name = H.span [toClass $ "fa fa-" <> name] []
@@ -26,6 +29,15 @@ fa name = H.span [toClass $ "fa fa-" <> name] []
 nbsp :: String
 nbsp = S.singleton $ fromCharCode 160
 
+
+ensp :: String
+ensp = S.singleton $ fromCharCode 8194
+
+emdash :: String
+emdash = S.singleton $ fromCharCode 8212
+
+emsep :: String
+emsep = ensp <> emdash <> ensp
 
 stripNum :: Maybe String -> Maybe String
 stripNum text = S.takeWhile ((/=) '/') <$> text

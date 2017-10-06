@@ -27,7 +27,7 @@ import Control.Monad.Writer (Writer, execWriter, tell)
 
 import Data.Array (singleton)
 import Data.Either (Either(..))
-import Data.Foldable (sum, and, or, all, any)
+import Data.Foldable (sum, and, or, all, any, elem, notElem, surround, intercalate)
 import Data.Function (on)
 import Data.Functor.Coproduct (Coproduct(..), coproduct)
 import Data.List (List(..))

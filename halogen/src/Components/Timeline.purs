@@ -13,11 +13,11 @@ import Halogen.HTML.Properties (href, src)
 
 import Network.HTTP.Affjax (AJAX)
 
-import Model (Song(..), Album(..), AppEffects, albumUrl)
-import Mpd (fetchAllAlbums, fetchSongs)
-import Util (toClass, clickable, fa, nbsp, onClickDo)
+import Model (Song(..), Album(..), AppEffects, albumUrl, artistName)
+import Mpd as M
+import Util
 
-data Query a = LoadAlbums a | LoadSongs (Array Album) a
+data Query a = LoadAlbums a | LoadSongs (Array Album) a | Play Album a | Add Album a
 type State =
     { albums :: Array (Tuple Album (Array Song))
     , busy :: Boolean
@@ -42,24 +42,34 @@ component = HA.lifecycleComponent
 eval :: forall eff. Query ~> ComponentDSL State Query Unit (Aff (AppEffects eff))
 eval (LoadAlbums next) = do  -- Fetch albums and load the first chunk of songs
     HA.modify (_ { busy = true })
-    byDate <- A.sortWith (\(Album a) -> a.date) <$> HA.liftAff fetchAllAlbums
-    songs <- HA.liftAff $ sequence $ map fetchSongs $ A.take 20 byDate
+    byDate <- A.sortWith (\(Album a) -> a.date) <$> HA.liftAff M.fetchAllAlbums
+    songs <- HA.liftAff $ sequence $ map M.fetchSongs $ A.take 20 byDate
     HA.put { albums: A.zip byDate songs, busy: false }
     eval $ LoadSongs (A.drop 20 byDate) next
 
 eval (LoadSongs [] next) = pure next
 
 eval (LoadSongs albums next) = do
-    songs <- HA.liftAff $ sequence $ map fetchSongs $ A.take 50 albums
+    songs <- HA.liftAff $ sequence $ map M.fetchSongs $ A.take 50 albums
     loaded <- HA.gets _.albums
     HA.modify (_ { albums =  loaded <> A.zip albums songs })
     eval $ LoadSongs (A.drop 50 albums) next
 
+eval (Play album next) = do
+    _ <- HA.liftAff $ M.sendCmds [M.Clear, M.AddAlbum album, M.Play Nothing]
+    HA.raise unit
+    pure next
+
+eval (Add album next) = do
+    _ <- HA.liftAff $ M.sendCmd $ M.AddAlbum album
+    HA.raise unit
+    pure next
+
 
 render :: State -> HA.ComponentHTML Query
 render { busy, albums } =
-    H.div [toClass "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"] <% do
-        put $ H.h4 [toClass "page-header"] <% do
+    H.div [cls "col-xs-12 col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main"] <% do
+        put $ H.h4 [cls "page-header"] <% do
            put $ H.text "Timeline"
            when busy $ puts [H.text nbsp, fa "circle-o-notch fa-spin"]
         puts $ map yearGroup byYear
@@ -69,25 +79,31 @@ render { busy, albums } =
     byDecade = A.groupBy (eqBy (decade <<< fst)) albums
     byYear = A.groupBy (eqBy (year <<< fst)) albums
 
-    yearGroup group = H.div [toClass "row"] <% do
-        put $ H.h5 [toClass "col-xs-12"] [H.text thisYear]
+    yearGroup group = H.div [cls "row"] <% do
+        put $ H.h5 [cls "col-xs-12"] [H.text thisYear]
         puts $ A.drop 1 $ A.concat $ A.mapWithIndex albumOrClear $ A.fromFoldable group
-        put $ H.div [toClass "clearfix"] []
-        put $ H.div [toClass "col-xs-1"] []
-        put $ H.div [toClass "col-xs-10"] [H.hr_]
-        put $ H.div [toClass "col-xs-1"] []
+        put $ H.div [cls "clearfix"] []
+        put $ H.div [cls "col-xs-1"] []
+        put $ H.div [cls "col-xs-10"] [H.hr_]
+        put $ H.div [cls "col-xs-1"] []
       where
         thisYear = year $ fst $ N.head group
 
         albumOrClear i a
-            | i `mod` 4 == 0 = [H.div [toClass "clearfix"] [], albumCol a]
-            | i `mod` 2 == 0 = [H.div [toClass "clearfix visible-xs-block"] [], albumCol a]
+            | i `mod` 4 == 0 = [H.div [cls "clearfix"] [], albumCol a]
+            | i `mod` 2 == 0 = [H.div [cls "clearfix visible-xs-block"] [], albumCol a]
             | otherwise = [albumCol a]
 
-        albumCol (Tuple (Album a) songs) = H.a [href $ albumUrl (Album a), toClass "col-xs-6 col-sm-3"] <% do
-            maybePut image $ A.head songs
-            put $ H.h6 [toClass "text-center"] <% do
-                put $ H.text $ a.title <> nbsp
-                put $ H.p_ [H.small_ $ map H.text ["(", a.date, ")"]]
-
-        image (Song { file }) = H.img [src $ "/image/" <> file, toClass "img-responsive center-block"]
+        albumCol (Tuple album@(Album a) songs) = H.div [cls "col-xs-6 col-sm-3"] <% do
+            put $ H.div [cls "thumbnail"] <% do
+                maybePut image $ A.head songs
+                put $ H.div [cls "caption text-center"] <% do
+                    put $ H.h6_ <% do
+                        put $ H.text $ a.title <> ensp
+                        put $ H.span [cls "fa fa-play-circle clickable", onClickDo $ Play album] []
+                        put $ H.text nbsp
+                        put $ H.span [cls "fa fa-plus-circle clickable", onClickDo $ Add album] []
+                    put $ H.span_ [H.text $ intercalate " " [artistName a.artist, emdash, a.date]]
+          where
+            image (Song { file }) =
+                H.a [href $ albumUrl album] [H.img [src $ "/image/" <> file, cls "img-responsive center-block"]]
